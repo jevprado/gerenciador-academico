@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ComponentProps } from "react";
+import { EyeIcon, EyeOffIcon } from "./icons";
 import { inputClass } from "./styles";
 
 // Campo de senha com botão de mostrar/ocultar.
@@ -9,14 +10,15 @@ export function PasswordInput(props: Omit<ComponentProps<"input">, "type" | "cla
 
   return (
     <div className="relative">
-      <input {...props} type={visible ? "text" : "password"} className={`${inputClass} pr-16`} />
+      <input {...props} type={visible ? "text" : "password"} className={`${inputClass} pr-12`} />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
-        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex items-center px-3.5 text-muted transition hover:text-foreground"
       >
-        {visible ? "Ocultar" : "Mostrar"}
+        {visible ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
       </button>
     </div>
   );

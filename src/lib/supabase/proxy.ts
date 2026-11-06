@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "./env";
+import { REMEMBER_COOKIE, isPersistent, withPersistence } from "./remember";
 
 // Rotas que exigem usuário logado.
 const PROTECTED_PREFIXES = ["/inicio"];
@@ -12,6 +13,7 @@ const AUTH_ROUTES = ["/login", "/cadastro"];
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const { url, key } = getSupabaseEnv();
+  const persistent = isPersistent(request.cookies.get(REMEMBER_COOKIE)?.value);
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -22,7 +24,7 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
+          response.cookies.set(name, value, withPersistence(options, persistent)),
         );
         Object.entries(headers).forEach(([k, v]) => response.headers.set(k, v));
       },

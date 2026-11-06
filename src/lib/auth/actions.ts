@@ -1,7 +1,8 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { REMEMBER_COOKIE } from "@/lib/supabase/remember";
 import { createClient } from "@/lib/supabase/server";
 import { translateAuthError } from "./errors";
 
@@ -11,7 +12,7 @@ export type AuthFormState =
       fieldErrors?: Partial<Record<"name" | "email" | "password" | "confirmPassword", string>>;
       success?: string;
       // Valores devolvidos para repreencher o formulário (nunca a senha).
-      fields?: { name?: string; email?: string };
+      fields?: { name?: string; email?: string; remember?: boolean };
     }
   | undefined;
 
@@ -26,16 +27,25 @@ function field(formData: FormData, name: string) {
 export async function login(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = field(formData, "email").trim().toLowerCase();
   const password = field(formData, "password");
+  const remember = formData.get("remember") === "on";
 
   if (!email || !password) {
-    return { error: "Preencha e-mail e senha.", fields: { email } };
+    return { error: "Preencha e-mail e senha.", fields: { email, remember } };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient({ persistent: remember });
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return { error: translateAuthError(error), fields: { email } };
+    return { error: translateAuthError(error), fields: { email, remember } };
+  }
+
+  // Guarda a preferência para que o proxy renove a sessão do mesmo jeito.
+  const cookieStore = await cookies();
+  if (remember) {
+    cookieStore.delete(REMEMBER_COOKIE);
+  } else {
+    cookieStore.set(REMEMBER_COOKIE, "0", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" });
   }
 
   redirect("/inicio");
@@ -91,5 +101,6 @@ export async function signup(_prev: AuthFormState, formData: FormData): Promise<
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  (await cookies()).delete(REMEMBER_COOKIE);
   redirect("/login");
 }

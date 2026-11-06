@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Gerenciador Acadêmico",
-    template: "%s | Gerenciador Acadêmico",
+    default: "Gestão acadêmica",
+    template: "%s | Gestão acadêmica",
   },
   description: "Organize disciplinas, tarefas, provas e notas em um só lugar.",
 };
