@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Por enquanto a raiz leva direto ao login.
-// Quando a autenticação existir, aqui decidiremos entre /login e o painel.
+// O proxy decide para onde a raiz vai (/inicio ou /login) conforme a sessão.
+// Este redirect é só um fallback.
 export default function Home() {
   redirect("/login");
 }

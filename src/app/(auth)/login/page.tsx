@@ -1,41 +1,48 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { FormMessage } from "@/components/auth/form-message";
 import { LoginForm } from "@/components/auth/login-form";
+import { linkClass } from "@/components/auth/styles";
 
 export const metadata: Metadata = {
   title: "Entrar",
 };
 
-export default function LoginPage() {
+const NOTICES: Record<string, string> = {
+  "link-invalido": "O link de confirmação é inválido ou expirou. Tente entrar ou crie a conta novamente.",
+};
+
+export default function LoginPage(props: PageProps<"/login">) {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div
-            aria-hidden
-            className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">
-              <path d="M22 10 12 5 2 10l10 5 10-5Z" />
-              <path d="M6 12v5c3 2 9 2 12 0v-5" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Gerenciador Acadêmico</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Entre para acessar suas disciplinas e tarefas
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <LoginForm />
-        </div>
-
-        <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+    <AuthShell
+      subtitle="Entre para acessar suas disciplinas e tarefas"
+      footer={
+        <>
           Não tem uma conta?{" "}
-          <a href="#" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+          <Link href="/cadastro" className={linkClass}>
             Criar conta
-          </a>
-        </p>
-      </div>
-    </main>
+          </Link>
+        </>
+      }
+    >
+      <Suspense fallback={null}>
+        <Notice searchParams={props.searchParams} />
+      </Suspense>
+      <LoginForm />
+    </AuthShell>
+  );
+}
+
+// Avisos vindos de redirecionamentos (ex.: link de confirmação expirado).
+async function Notice({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
+  const { erro } = await searchParams;
+  const message = typeof erro === "string" ? NOTICES[erro] : undefined;
+  if (!message) return null;
+  return (
+    <div className="mb-4">
+      <FormMessage kind="error">{message}</FormMessage>
+    </div>
   );
 }
