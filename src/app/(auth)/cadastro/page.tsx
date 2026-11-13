@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <AuthShell
-      subtitle="Crie sua conta para organizar sua vida acadêmica"
+      title="Crie sua conta"
+      subtitle="Leva menos de um minuto para começar."
       footer={
         <>
           Já tem uma conta?{" "}

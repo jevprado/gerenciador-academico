@@ -17,10 +17,11 @@ const NOTICES: Record<string, string> = {
 export default function LoginPage(props: PageProps<"/login">) {
   return (
     <AuthShell
-      subtitle="Entre para acessar suas disciplinas e tarefas"
+      title="Acesse seu espaço"
+      subtitle="Tudo pronto para organizar sua rotina?"
       footer={
         <>
-          Não tem uma conta?{" "}
+          Ainda não tem uma conta?{" "}
           <Link href="/cadastro" className={linkClass}>
             Criar conta
           </Link>

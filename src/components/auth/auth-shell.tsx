@@ -1,40 +1,111 @@
 import type { ReactNode } from "react";
+import { BookIcon, CalendarIcon, HelpIcon, NotebookIcon, ProgressIcon } from "./icons";
 
-// Moldura comum das telas de autenticação (logo, título, cartão e rodapé).
+const FEATURES = [
+  {
+    icon: NotebookIcon,
+    title: "Disciplinas em um só lugar",
+    text: "Materiais e informações organizados por matéria.",
+  },
+  {
+    icon: CalendarIcon,
+    title: "Prazos sempre à vista",
+    text: "Acompanhe provas, trabalhos e próximas entregas.",
+  },
+  {
+    icon: ProgressIcon,
+    title: "Clareza sobre seu progresso",
+    text: "Consulte suas notas e acompanhe cada etapa.",
+  },
+];
+
+// Moldura comum das telas de autenticação: cabeçalho, apresentação à esquerda,
+// cartão com o formulário à direita e rodapé.
 export function AuthShell({
+  title,
   subtitle,
   children,
   footer,
 }: {
+  title: string;
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div
-            aria-hidden
-            className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">
-              <path d="M22 10 12 5 2 10l10 5 10-5Z" />
-              <path d="M6 12v5c3 2 9 2 12 0v-5" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Gerenciador Acadêmico</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+    <div className="flex flex-1 flex-col">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-6 sm:px-8 lg:px-20">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-white">
+            <BookIcon className="h-5 w-5" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">Gestão acadêmica</span>
         </div>
+        {/* TODO: página de ajuda */}
+        <a
+          href="#"
+          className="flex items-center gap-2 text-sm text-muted transition hover:text-foreground"
+        >
+          <HelpIcon className="h-4 w-4" />
+          Precisa de ajuda?
+        </a>
+      </header>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          {children}
+      <main className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-16 px-4 py-10 sm:px-8 lg:grid-cols-[1fr_minmax(0,32rem)] lg:px-20 lg:py-16">
+        <section className="hidden lg:block lg:pl-8">
+          <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.2em] text-brand dark:text-link">
+            <span aria-hidden className="h-0.5 w-6 bg-current" />
+            MENOS RUÍDO. MAIS FOCO.
+          </p>
+          <h2 className="mt-6 text-6xl leading-[1.1] font-medium tracking-tight">
+            Sua vida acadêmica,
+            <br />
+            <span className="text-brand dark:text-link">em ordem.</span>
+          </h2>
+          <p className="mt-8 max-w-md text-lg leading-relaxed text-muted">
+            Reúna disciplinas, prazos, objetivos e notas em um único lugar. Mais organização
+            para focar no que importa: aprender.
+          </p>
+
+          <ul className="mt-10 space-y-6">
+            {FEATURES.map(({ icon: FeatureIcon, title: featureTitle, text }) => (
+              <li key={featureTitle} className="flex items-start gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand dark:text-link">
+                  <FeatureIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-medium">{featureTitle}</p>
+                  <p className="mt-0.5 text-sm text-muted">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-10 text-xs text-muted">Seu próximo semestre começa com mais clareza.</p>
+        </section>
+
+        <div className="w-full max-w-lg justify-self-center rounded-2xl border border-line bg-card p-6 shadow-xl shadow-black/[0.03] sm:p-8">
+          <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+          <p className="mt-2 text-sm text-muted">{subtitle}</p>
+          <div className="mt-6">{children}</div>
+          {footer && <p className="mt-6 text-center text-sm text-muted">{footer}</p>}
         </div>
+      </main>
 
-        {footer && (
-          <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">{footer}</p>
-        )}
-      </div>
-    </main>
+      <footer className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-8 text-xs text-muted sm:px-8 lg:px-20">
+          <span>Gestão acadêmica</span>
+          {/* TODO: páginas de privacidade e termos */}
+          <nav className="flex gap-6">
+            <a href="#" className="transition hover:text-foreground">
+              Privacidade
+            </a>
+            <a href="#" className="transition hover:text-foreground">
+              Termos de uso
+            </a>
+          </nav>
+        </div>
+      </footer>
+    </div>
   );
 }

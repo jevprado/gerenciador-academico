@@ -15,11 +15,11 @@ export function SignupForm() {
   }
 
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <form action={action} className="space-y-5" noValidate>
       {state?.error && <FormMessage kind="error">{state.error}</FormMessage>}
 
-      <div className="space-y-1.5">
-        <label htmlFor="name" className="text-sm font-medium">
+      <div className="space-y-2">
+        <label htmlFor="name" className="block text-sm font-medium">
           Nome
         </label>
         <input
@@ -37,8 +37,8 @@ export function SignupForm() {
         <FieldError id="name-error" message={errors.name} />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium">
+      <div className="space-y-2">
+        <label htmlFor="email" className="block text-sm font-medium">
           E-mail
         </label>
         <input
@@ -56,8 +56,8 @@ export function SignupForm() {
         <FieldError id="email-error" message={errors.email} />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium">
+      <div className="space-y-2">
+        <label htmlFor="password" className="block text-sm font-medium">
           Senha
         </label>
         <PasswordInput
@@ -73,8 +73,8 @@ export function SignupForm() {
         <FieldError id="password-error" message={errors.password} />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="confirmPassword" className="text-sm font-medium">
+      <div className="space-y-2">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium">
           Confirmar senha
         </label>
         <PasswordInput

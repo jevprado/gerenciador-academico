@@ -1,7 +1,10 @@
 export const inputClass =
-  "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 aria-[invalid=true]:border-red-500 dark:border-slate-700 dark:bg-slate-950";
+  "block h-12 w-full rounded-lg border border-line bg-card px-3.5 text-sm text-foreground placeholder:text-muted transition focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand/15 aria-[invalid=true]:border-red-500";
 
 export const primaryButtonClass =
-  "w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60";
+  "flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60";
 
-export const linkClass = "font-medium text-indigo-600 hover:underline dark:text-indigo-400";
+export const secondaryButtonClass =
+  "flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-line bg-card px-4 text-sm font-medium text-foreground transition hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-70";
+
+export const linkClass = "font-medium text-link hover:underline";
