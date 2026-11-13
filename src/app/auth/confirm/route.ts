@@ -13,15 +13,27 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNext(searchParams.get("next"));
 
+  // O próprio Supabase pode redirecionar já com erro (ex.: link expirado ou já usado).
+  const providerError = searchParams.get("error_code") ?? searchParams.get("error");
+  if (providerError) {
+    console.error("[auth/confirm] Supabase retornou erro:", providerError, searchParams.get("error_description"));
+    return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+  }
+
   const supabase = await createClient();
 
   const { error } = code
     ? await supabase.auth.exchangeCodeForSession(code)
     : tokenHash && type
       ? await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
-      : { error: new Error("Parâmetros ausentes") };
+      : { error: new Error("Parâmetros ausentes na URL") };
 
   if (error) {
+    console.error(
+      `[auth/confirm] Falha ao confirmar (${code ? "code/PKCE" : "token_hash"}):`,
+      "code" in error ? error.code : undefined,
+      error.message,
+    );
     return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
   }
 

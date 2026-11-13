@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 };
 
 const NOTICES: Record<string, string> = {
-  "link-invalido": "O link de confirmação é inválido ou expirou. Tente entrar ou crie a conta novamente.",
+  "link-invalido":
+    "Não foi possível concluir a confirmação por este link. Se você já confirmou o e-mail, basta entrar abaixo. Se não, o link pode ter expirado: crie a conta novamente.",
 };
 
 export default function LoginPage(props: PageProps<"/login">) {
