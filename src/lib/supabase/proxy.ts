@@ -4,7 +4,7 @@ import { getSupabaseEnv } from "./env";
 import { REMEMBER_COOKIE, isPersistent, withPersistence } from "./remember";
 
 // Rotas que exigem usuário logado.
-const PROTECTED_PREFIXES = ["/inicio"];
+const PROTECTED_PREFIXES = ["/inicio", "/semestres", "/disciplinas", "/prazos"];
 // Rotas que não fazem sentido para quem já está logado.
 const AUTH_ROUTES = ["/login", "/cadastro"];
 
