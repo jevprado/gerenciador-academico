@@ -81,26 +81,37 @@ async function db() {
 // ---------------------------------------------------------------------------
 // Semestres
 // ---------------------------------------------------------------------------
+function semesterFields(fd: FormData) {
+  const start = date(fd, "start_date");
+  const end = date(fd, "end_date");
+  if (start! >= end!) throw new InvalidInput("A data de término deve ser depois do início.");
+  return {
+    name: text(fd, "name", { required: true, max: 40 }),
+    start_date: start,
+    end_date: end,
+    min_average: num(fd, "min_average", { required: true, max: 10, label: "a média mínima" }),
+    min_attendance: num(fd, "min_attendance", { required: true, max: 100, label: "a frequência mínima" }),
+  };
+}
+
 export async function createSemester(_: FormState, fd: FormData) {
   return run(async () => {
-    const name = text(fd, "name", { required: true, max: 40 });
-    const start = date(fd, "start_date");
-    const end = date(fd, "end_date");
-    if (start! >= end!) throw new InvalidInput("A data de término deve ser depois do início.");
+    const fields = semesterFields(fd);
     const supabase = await db();
     const makeCurrent = fd.get("is_current") === "on";
     if (makeCurrent) {
       const { error } = await supabase.from("semesters").update({ is_current: false }).eq("is_current", true);
       if (error) return { error };
     }
-    return supabase.from("semesters").insert({
-      name,
-      start_date: start,
-      end_date: end,
-      is_current: makeCurrent,
-      min_average: num(fd, "min_average", { required: true, max: 10, label: "a média mínima" }),
-      min_attendance: num(fd, "min_attendance", { required: true, max: 100, label: "a frequência mínima" }),
-    });
+    return supabase.from("semesters").insert({ ...fields, is_current: makeCurrent });
+  }, fd);
+}
+
+export async function updateSemester(id: string, _: FormState, fd: FormData) {
+  return run(async () => {
+    const fields = semesterFields(fd);
+    const supabase = await db();
+    return supabase.from("semesters").update(fields).eq("id", id);
   }, fd);
 }
 
@@ -243,22 +254,34 @@ export async function deleteAbsence(id: string) {
 // ---------------------------------------------------------------------------
 // Prazos
 // ---------------------------------------------------------------------------
+function deadlineFields(fd: FormData) {
+  const day = date(fd, "date");
+  const time = text(fd, "time", { max: 5 }) ?? "23:59";
+  if (!TIME_RE.test(time)) throw new InvalidInput("Horário inválido.");
+  return {
+    subject_id: text(fd, "subject_id"),
+    title: text(fd, "title", { required: true, max: 200 }),
+    description: text(fd, "description", { max: 2000 }),
+    type: pick(fd, "type", ASSESSMENT_TYPES, "trabalho"),
+    priority: pick(fd, "priority", PRIORITIES, "media"),
+    // Horário de Brasília (sem horário de verão desde 2019).
+    due_at: `${day}T${time}:00-03:00`,
+  };
+}
+
 export async function createDeadline(_: FormState, fd: FormData) {
   return run(async () => {
-    const day = date(fd, "date");
-    const time = text(fd, "time", { max: 5 }) ?? "23:59";
-    if (!TIME_RE.test(time)) throw new InvalidInput("Horário inválido.");
+    const fields = deadlineFields(fd);
     const supabase = await db();
-    return supabase.from("deadlines").insert({
-      semester_id: text(fd, "semester_id", { required: true }),
-      subject_id: text(fd, "subject_id"),
-      title: text(fd, "title", { required: true, max: 200 }),
-      description: text(fd, "description", { max: 2000 }),
-      type: pick(fd, "type", ASSESSMENT_TYPES, "trabalho"),
-      priority: pick(fd, "priority", PRIORITIES, "media"),
-      // Horário de Brasília (sem horário de verão desde 2019).
-      due_at: `${day}T${time}:00-03:00`,
-    });
+    return supabase.from("deadlines").insert({ ...fields, semester_id: text(fd, "semester_id", { required: true }) });
+  }, fd);
+}
+
+export async function updateDeadline(id: string, _: FormState, fd: FormData) {
+  return run(async () => {
+    const fields = deadlineFields(fd);
+    const supabase = await db();
+    return supabase.from("deadlines").update(fields).eq("id", id);
   }, fd);
 }
 

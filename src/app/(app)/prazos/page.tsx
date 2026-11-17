@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ActionButton, ActionForm } from "@/components/app/forms";
+import { ActionButton, ActionForm, EditableItem } from "@/components/app/forms";
 import { fieldClass } from "@/components/app/styles";
 import { Badge, Empty, Field, NoCurrentSemester, PageTitle, Panel } from "@/components/app/ui";
-import { createDeadline, deleteDeadline, toggleDeadline } from "@/lib/academic/actions";
+import { createDeadline, deleteDeadline, toggleDeadline, updateDeadline } from "@/lib/academic/actions";
 import { TYPE_LABEL } from "@/lib/academic/calc";
 import { getCurrentSemester, listDeadlines, listSubjects, type DeadlineRow } from "@/lib/academic/queries";
 
@@ -19,6 +19,7 @@ const fmtDue = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const hm = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const dayOf = (d: Date) => Date.parse(ymd.format(d));
 const PRIORITY: Record<DeadlineRow["priority"], { label: string; tone: "neutral" | "warn" | "danger" }> = {
   baixa: { label: "Baixa", tone: "neutral" },
@@ -75,7 +76,7 @@ async function Content() {
                     </h3>
                     <ul className="space-y-2">
                       {items.map((d) => (
-                        <DeadlineItem key={d.id} d={d} />
+                        <DeadlineItem key={d.id} d={d} subjects={subjects} />
                       ))}
                     </ul>
                   </div>
@@ -88,48 +89,7 @@ async function Content() {
         <Panel title="Novo prazo" id="novo">
           <ActionForm action={createDeadline} submitLabel="Adicionar prazo" successMessage="Prazo adicionado.">
             <input type="hidden" name="semester_id" value={semester.id} />
-            <Field label="Título">
-              <input name="title" required maxLength={200} placeholder="Entrega do trabalho 1" autoFocus className={fieldClass} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Data">
-                <input type="date" name="date" required className={fieldClass} />
-              </Field>
-              <Field label="Hora">
-                <input type="time" name="time" defaultValue="23:59" className={fieldClass} />
-              </Field>
-            </div>
-            <Field label="Disciplina">
-              <select name="subject_id" className={fieldClass}>
-                <option value="">Nenhuma</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Tipo">
-                <select name="type" defaultValue="trabalho" className={fieldClass}>
-                  {Object.entries(TYPE_LABEL).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Prioridade">
-                <select name="priority" defaultValue="media" className={fieldClass}>
-                  <option value="baixa">Baixa</option>
-                  <option value="media">Média</option>
-                  <option value="alta">Alta</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Descrição (opcional)">
-              <textarea name="description" maxLength={2000} rows={3} className={`${fieldClass} h-auto py-2`} />
-            </Field>
+            <DeadlineFields subjects={subjects} />
           </ActionForm>
         </Panel>
       </div>
@@ -137,23 +97,92 @@ async function Content() {
   );
 }
 
-function DeadlineItem({ d }: { d: DeadlineRow }) {
+type SubjectOption = { id: string; name: string };
+
+function DeadlineItem({ d, subjects }: { d: DeadlineRow; subjects: SubjectOption[] }) {
   const done = Boolean(d.completed_at);
   return (
-    <li className="flex items-start gap-3 rounded-xl border border-line p-3">
-      <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.subjects?.color ?? "var(--line)" }} aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className={`font-medium ${done ? "text-muted line-through" : ""}`}>{d.title}</p>
-        <p className="text-xs text-muted">
-          {[fmtDue.format(new Date(d.due_at)), d.subjects?.name, TYPE_LABEL[d.type]].filter(Boolean).join(" · ")}
-        </p>
-        {d.description && <p className="mt-1 text-sm text-muted">{d.description}</p>}
-      </div>
-      {!done && <Badge tone={PRIORITY[d.priority].tone}>{PRIORITY[d.priority].label}</Badge>}
-      <ActionButton action={toggleDeadline.bind(null, d.id, !done)}>{done ? "Desfazer" : "Concluir"}</ActionButton>
-      <ActionButton action={deleteDeadline.bind(null, d.id)} variant="danger" confirm={`Excluir o prazo "${d.title}"?`} label={`Excluir ${d.title}`}>
-        ✕
-      </ActionButton>
+    <li className="rounded-xl border border-line p-3">
+      <EditableItem
+        summary={
+          <div className="flex items-start gap-3">
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.subjects?.color ?? "var(--line)" }} aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className={`flex flex-wrap items-center gap-2 font-medium ${done ? "text-muted line-through" : ""}`}>
+                {d.title}
+                {!done && <Badge tone={PRIORITY[d.priority].tone}>{PRIORITY[d.priority].label}</Badge>}
+              </p>
+              <p className="text-xs text-muted">
+                {[fmtDue.format(new Date(d.due_at)), d.subjects?.name, TYPE_LABEL[d.type]].filter(Boolean).join(" · ")}
+              </p>
+              {d.description && <p className="mt-1 text-sm text-muted">{d.description}</p>}
+            </div>
+          </div>
+        }
+        actions={
+          <>
+            <ActionButton action={toggleDeadline.bind(null, d.id, !done)}>{done ? "Desfazer" : "Concluir"}</ActionButton>
+            <ActionButton action={deleteDeadline.bind(null, d.id)} variant="danger" confirm={`Excluir o prazo "${d.title}"?`} label={`Excluir ${d.title}`}>
+              ✕
+            </ActionButton>
+          </>
+        }
+      >
+        <ActionForm action={updateDeadline.bind(null, d.id)} submitLabel="Salvar alterações">
+          <DeadlineFields subjects={subjects} initial={d} />
+        </ActionForm>
+      </EditableItem>
     </li>
+  );
+}
+
+// Campos comuns aos formulários de criar e editar prazo.
+function DeadlineFields({ subjects, initial }: { subjects: SubjectOption[]; initial?: DeadlineRow }) {
+  const due = initial ? new Date(initial.due_at) : null;
+  return (
+    <>
+      <Field label="Título">
+        <input name="title" required maxLength={200} placeholder="Entrega do trabalho 1" defaultValue={initial?.title} className={fieldClass} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Data">
+          <input type="date" name="date" required defaultValue={due ? ymd.format(due) : undefined} className={fieldClass} />
+        </Field>
+        <Field label="Hora">
+          <input type="time" name="time" defaultValue={due ? hm.format(due) : "23:59"} className={fieldClass} />
+        </Field>
+      </div>
+      <Field label="Disciplina">
+        <select name="subject_id" defaultValue={initial?.subjects?.id ?? ""} className={fieldClass}>
+          <option value="">Nenhuma</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Tipo">
+          <select name="type" defaultValue={initial?.type ?? "trabalho"} className={fieldClass}>
+            {Object.entries(TYPE_LABEL).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Prioridade">
+          <select name="priority" defaultValue={initial?.priority ?? "media"} className={fieldClass}>
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Descrição (opcional)">
+        <textarea name="description" maxLength={2000} rows={3} defaultValue={initial?.description ?? ""} className={`${fieldClass} h-auto py-2`} />
+      </Field>
+    </>
   );
 }
