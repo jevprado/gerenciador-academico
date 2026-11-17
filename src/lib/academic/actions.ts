@@ -58,7 +58,11 @@ function dbMessage(error: { code?: string; message: string }) {
 async function run(work: (fd: FormData) => Promise<{ error: { code?: string; message: string } | null } | void>, fd: FormData): Promise<FormState> {
   try {
     const res = await work(fd);
-    if (res?.error) return { error: dbMessage(res.error) };
+    if (res?.error) {
+      // Mostra no terminal o erro real do banco; a tela recebe só a mensagem amigável.
+      console.error("[academic] Erro do Supabase:", res.error);
+      return { error: dbMessage(res.error) };
+    }
   } catch (e) {
     if (e instanceof InvalidInput) return { error: e.message };
     throw e;
