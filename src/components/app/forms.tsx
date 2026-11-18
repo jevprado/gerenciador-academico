@@ -1,9 +1,38 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { FormMessage } from "@/components/auth/form-message";
 import type { FormState } from "@/lib/academic/actions";
+
+// Permite que um ActionForm dentro de um EditableItem feche a edição ao salvar.
+const EditContext = createContext<(() => void) | null>(null);
+
+// Linha de lista com botão "Editar": mostra o formulário (children) logo abaixo.
+export function EditableItem({ summary, actions, children }: { summary: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">{summary}</div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          {open ? "Cancelar" : "Editar"}
+        </button>
+        {actions}
+      </div>
+      {open && (
+        <div className="mt-3 rounded-xl border border-line bg-background p-4">
+          <EditContext.Provider value={() => setOpen(false)}>{children}</EditContext.Provider>
+        </div>
+      )}
+    </>
+  );
+}
 
 // Formulário ligado a uma server action. Mostra erro e limpa os campos após salvar.
 export function ActionForm({
@@ -25,10 +54,13 @@ export function ActionForm({
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const ref = useRef<HTMLFormElement>(null);
+  const closeEdit = useContext(EditContext);
 
   useEffect(() => {
-    if (state?.ok && resetOnSuccess) ref.current?.reset();
-  }, [state?.ok, resetOnSuccess]);
+    if (!state?.ok) return;
+    if (closeEdit) closeEdit();
+    else if (resetOnSuccess) ref.current?.reset();
+  }, [state?.ok, resetOnSuccess, closeEdit]);
 
   return (
     <form ref={ref} id={id} action={formAction} className={className ?? "space-y-4"}>
