@@ -1,6 +1,7 @@
 import "server-only";
 
 import { notFound, redirect } from "next/navigation";
+import type { CalendarEventRow } from "@/lib/academic/calendar-types";
 import { dbError } from "@/lib/supabase/db-error";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,3 +134,18 @@ export async function listDeadlines(semesterId: string) {
   if (error) throw dbError(error);
   return data ?? [];
 }
+
+export async function listCalendarEvents(semesterId: string) {
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("id, semester_id, title, description, category, target, start_date, end_date, source")
+    .eq("semester_id", semesterId)
+    .order("start_date", { ascending: true })
+    .order("end_date", { ascending: true })
+    .order("title", { ascending: true })
+    .returns<CalendarEventRow[]>();
+  if (error) throw dbError(error);
+  return data ?? [];
+}
+
