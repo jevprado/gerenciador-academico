@@ -94,10 +94,11 @@ async function Dashboard() {
       {/* Atalhos */}
       <section aria-labelledby="atalhos">
         <h2 id="atalhos" className="mb-3 text-lg font-semibold tracking-tight">Atalhos</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Shortcut href="/prazos#novo" icon={PlusIcon} label="Novo prazo" />
           <Shortcut href="/disciplinas" icon={NotebookIcon} label="Lançar nota" />
           <Shortcut href="/disciplinas#nova" icon={BookIcon} label="Nova disciplina" />
+          <Shortcut href="/calendario" icon={CalendarIcon} label="Calendário" />
           <Shortcut href="/semestres" icon={CalendarIcon} label="Semestres" />
         </div>
       </section>

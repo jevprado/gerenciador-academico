@@ -2,6 +2,13 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
+import { CALENDAR_CATEGORIES, type ParsedCalendarEvent } from "@/lib/academic/calendar-types";
+import {
+  detectSemesterFromText,
+  inferSemesterFromEvents,
+  parseCalendarText,
+  parsePdfCalendarBuffer,
+} from "@/lib/academic/pdf-parser";
 import { createClient } from "@/lib/supabase/server";
 
 // Estado devolvido aos formulários. `ok` muda a cada sucesso para o form se limpar.
@@ -48,6 +55,9 @@ function date(fd: FormData, name: string, required = true) {
 
 // Erros do banco em linguagem não técnica (RNF06).
 function dbMessage(error: { code?: string; message: string }) {
+  if (error.code === "PGRST205" || error.code === "42P01") {
+    return "Tabela não encontrada no Supabase. Rode a migração mais recente em supabase/migrations no SQL Editor.";
+  }
   if (error.code === "23514") return "Algum valor está fora do permitido. Confira datas e números.";
   if (error.code === "23505") return "Já existe um registro igual.";
   if (error.message.includes("inválid")) return "Registro não encontrado. Recarregue a página.";
@@ -296,3 +306,204 @@ export async function deleteDeadline(id: string) {
   await supabase.from("deadlines").delete().eq("id", id);
   refresh();
 }
+
+// ---------------------------------------------------------------------------
+// Calendário do Semestre (PDF + Manual)
+// ---------------------------------------------------------------------------
+function calendarEventFields(fd: FormData) {
+  const start = date(fd, "start_date", true)!;
+  const end = date(fd, "end_date", false) ?? start;
+  if (end < start) throw new InvalidInput("A data de término não pode ser anterior à data de início.");
+  return {
+    title: text(fd, "title", { required: true, max: 200 }),
+    description: text(fd, "description", { max: 2000 }),
+    category: pick(fd, "category", CALENDAR_CATEGORIES, "academico"),
+    target: text(fd, "target", { max: 60 }),
+    start_date: start,
+    end_date: end,
+  };
+}
+
+export async function createCalendarEvent(_: FormState, fd: FormData) {
+  return run(async () => {
+    const fields = calendarEventFields(fd);
+    const supabase = await db();
+    return supabase.from("calendar_events").insert({
+      ...fields,
+      semester_id: text(fd, "semester_id", { required: true }),
+      source: "manual",
+    });
+  }, fd);
+}
+
+export async function updateCalendarEvent(id: string, _: FormState, fd: FormData) {
+  return run(async () => {
+    const fields = calendarEventFields(fd);
+    const supabase = await db();
+    return supabase.from("calendar_events").update(fields).eq("id", id);
+  }, fd);
+}
+
+export async function deleteCalendarEvent(id: string) {
+  const supabase = await db();
+  await supabase.from("calendar_events").delete().eq("id", id);
+  refresh();
+}
+
+export async function clearCalendarEvents(semesterId: string) {
+  const supabase = await db();
+  await supabase.from("calendar_events").delete().eq("semester_id", semesterId);
+  refresh();
+}
+
+export type PdfExtractResult = {
+  error?: string;
+  events?: ParsedCalendarEvent[];
+  usedUnbFallback?: boolean;
+  fileName?: string;
+  detectedSemester?: string | null;
+};
+
+export async function extractCalendarFromPdf(fd: FormData): Promise<PdfExtractResult> {
+  await db();
+  const yearRaw = fd.get("fallback_year");
+  const fallbackYear = typeof yearRaw === "string" && /^\d{4}$/.test(yearRaw) ? Number(yearRaw) : 2026;
+
+  const rawText = fd.get("raw_text");
+  if (typeof rawText === "string" && rawText.trim().length > 0) {
+    const events = parseCalendarText(rawText, fallbackYear);
+    if (!events.length) {
+      return { error: "Nenhuma data no formato DD/MM/AAAA ou DD/MM foi identificada no texto informado." };
+    }
+    return {
+      events,
+      usedUnbFallback: false,
+      detectedSemester: detectSemesterFromText(rawText) ?? inferSemesterFromEvents(events),
+    };
+  }
+
+  const file = fd.get("pdf");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecione um arquivo PDF válido." };
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    return { error: "O arquivo PDF deve ter no máximo 15 MB." };
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { events, usedUnbFallback, detectedSemester } = parsePdfCalendarBuffer(buffer, file.name, fallbackYear);
+    if (!events.length) {
+      return {
+        error:
+          "Não foi possível identificar datas neste PDF (ele pode estar digitalizado como imagem). Use a opção de colar o texto ou carregar o modelo UnB 2026.1.",
+      };
+    }
+    return { events, usedUnbFallback, fileName: file.name, detectedSemester };
+  } catch (e) {
+    console.error("[calendar] Erro ao ler PDF:", e);
+    return { error: "Não foi possível processar o arquivo PDF enviado." };
+  }
+}
+
+export type CalendarImportTarget =
+  | { mode: "existing"; semesterId: string }
+  | { mode: "create"; name: string; startDate: string; endDate: string };
+
+export async function importCalendarEvents(
+  target: CalendarImportTarget,
+  events: ParsedCalendarEvent[],
+  replaceExistingPdf = false,
+): Promise<{ error?: string; count?: number; semesterId?: string; semesterName?: string }> {
+  if (!Array.isArray(events) || events.length === 0) {
+    return { error: "Selecione pelo menos uma data para importar." };
+  }
+
+  const normalized: Omit<ParsedCalendarEvent, never>[] = [];
+  for (const ev of events) {
+    const title = (ev.title ?? "").trim().slice(0, 200);
+    const start = (ev.start_date ?? "").trim();
+    const end = (ev.end_date ?? start).trim();
+    if (!title || !DATE_RE.test(start) || !DATE_RE.test(end) || end < start) continue;
+    const category = (CALENDAR_CATEGORIES as readonly string[]).includes(ev.category) ? ev.category : "academico";
+    normalized.push({
+      title,
+      description: ev.description ? ev.description.trim().slice(0, 2000) : null,
+      category,
+      target: ev.target ? ev.target.trim().slice(0, 60) : null,
+      start_date: start,
+      end_date: end,
+    });
+  }
+
+  if (!normalized.length) {
+    return { error: "Nenhum evento válido para importar." };
+  }
+
+  const supabase = await db();
+  let semesterId = "";
+  let semesterName = "";
+
+  if (target.mode === "create") {
+    const cleanName = target.name.trim().slice(0, 40);
+    if (!cleanName) return { error: "Informe o nome do semestre do calendário (ex.: 2025.2)." };
+    if (!DATE_RE.test(target.startDate) || !DATE_RE.test(target.endDate) || target.endDate <= target.startDate) {
+      return { error: "Não foi possível definir as datas de início e término do semestre." };
+    }
+
+    // Reaproveita se já existir um semestre com exatamente esse nome.
+    const { data: existingList } = await supabase.from("semesters").select("id, name");
+    const existing = (existingList ?? []).find((s) => s.name.trim().toLowerCase() === cleanName.toLowerCase());
+
+    if (existing) {
+      semesterId = existing.id;
+      semesterName = existing.name;
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from("semesters")
+        .insert({
+          name: cleanName,
+          start_date: target.startDate,
+          end_date: target.endDate,
+          is_current: false,
+          min_average: 6,
+          min_attendance: 75,
+        })
+        .select("id, name")
+        .single();
+      if (createErr || !created) {
+        if (createErr) console.error("[calendar] Erro ao criar semestre:", createErr);
+        return { error: createErr ? dbMessage(createErr) : "Não foi possível criar o semestre do calendário." };
+      }
+      semesterId = created.id;
+      semesterName = created.name;
+    }
+  } else {
+    if (!target.semesterId) return { error: "Semestre inválido." };
+    semesterId = target.semesterId;
+  }
+
+  if (replaceExistingPdf) {
+    const del = await supabase.from("calendar_events").delete().eq("semester_id", semesterId).eq("source", "pdf");
+    if (del.error) {
+      console.error("[calendar] Erro ao substituir eventos anteriores:", del.error);
+      return { error: dbMessage(del.error) };
+    }
+  }
+
+  const rows = normalized.map((ev) => ({
+    ...ev,
+    semester_id: semesterId,
+    source: "pdf" as const,
+  }));
+
+  const { error } = await supabase.from("calendar_events").insert(rows);
+  if (error) {
+    console.error("[calendar] Erro ao importar eventos do PDF:", error);
+    return { error: dbMessage(error) };
+  }
+
+  refresh();
+  return { count: rows.length, semesterId, semesterName };
+}
+

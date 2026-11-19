@@ -1,6 +1,7 @@
 import "server-only";
 
 import { notFound, redirect } from "next/navigation";
+import type { CalendarEventRow, CalendarSemesterOption } from "@/lib/academic/calendar-types";
 import { dbError } from "@/lib/supabase/db-error";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,3 +134,41 @@ export async function listDeadlines(semesterId: string) {
   if (error) throw dbError(error);
   return data ?? [];
 }
+
+export async function listCalendarSemesters(): Promise<CalendarSemesterOption[]> {
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("semesters")
+    .select("id, name, start_date, end_date, is_current, min_average, min_attendance, calendar_events(source)")
+    .order("start_date", { ascending: false });
+  if (error) throw dbError(error);
+  return (data ?? []).map((row) => {
+    const events = (row.calendar_events as unknown as { source: string }[] | null) ?? [];
+    return {
+      id: row.id,
+      name: row.name,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      is_current: row.is_current,
+      min_average: row.min_average,
+      min_attendance: row.min_attendance,
+      eventCount: events.length,
+      pdfEventCount: events.filter((e) => e.source === "pdf").length,
+    };
+  });
+}
+
+export async function listCalendarEvents(semesterId: string) {
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("id, semester_id, title, description, category, target, start_date, end_date, source")
+    .eq("semester_id", semesterId)
+    .order("start_date", { ascending: true })
+    .order("end_date", { ascending: true })
+    .order("title", { ascending: true })
+    .returns<CalendarEventRow[]>();
+  if (error) throw dbError(error);
+  return data ?? [];
+}
+
