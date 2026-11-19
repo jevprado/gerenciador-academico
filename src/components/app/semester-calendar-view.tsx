@@ -46,38 +46,54 @@ function fmtShortRange(startIso: string, endIso: string): string {
 
 type YearMonth = { year: number; month: number; key: string };
 
-function buildSemesterMonths(semesterStart: string, semesterEnd: string, events: CalendarEventRow[]): YearMonth[] {
-  const allDates = [semesterStart, semesterEnd, ...events.flatMap((e) => [e.start_date, e.end_date])].filter(Boolean).sort();
-  const minIso = allDates[0] ?? semesterStart;
-  const maxIso = allDates[allDates.length - 1] ?? semesterEnd;
+function monthsInRange(startIso: string, endIso: string, maxMonths: number): string[] {
+  if (!startIso || !endIso || endIso < startIso) return [];
+  let y = Number(startIso.slice(0, 4));
+  let m = Number(startIso.slice(5, 7)) - 1;
+  const endY = Number(endIso.slice(0, 4));
+  const endM = Number(endIso.slice(5, 7)) - 1;
+  const keys: string[] = [];
 
-  let y = Number(minIso.slice(0, 4));
-  let m = Number(minIso.slice(5, 7)) - 1;
-  const endY = Number(maxIso.slice(0, 4));
-  const endM = Number(maxIso.slice(5, 7)) - 1;
-
-  const result: YearMonth[] = [];
-  while (y < endY || (y === endY && m <= endM)) {
-    if (result.length >= 14) break;
-    result.push({
-      year: y,
-      month: m,
-      key: `${y}-${String(m + 1).padStart(2, "0")}`,
-    });
+  while ((y < endY || (y === endY && m <= endM)) && keys.length < maxMonths) {
+    keys.push(`${y}-${String(m + 1).padStart(2, "0")}`);
     m++;
     if (m > 11) {
       m = 0;
       y++;
     }
   }
-  return result;
+  return keys;
+}
+
+function buildSemesterMonths(semesterStart: string, semesterEnd: string, events: CalendarEventRow[]): YearMonth[] {
+  const keySet = new Set<string>(monthsInRange(semesterStart, semesterEnd, 12));
+  for (const ev of events) {
+    const span = daysBetween(ev.start_date, ev.end_date);
+    if (span <= 14) {
+      for (const k of monthsInRange(ev.start_date, ev.end_date, 2)) keySet.add(k);
+    } else {
+      keySet.add(ev.start_date.slice(0, 7));
+      keySet.add(ev.end_date.slice(0, 7));
+    }
+  }
+
+  return [...keySet]
+    .sort()
+    .slice(0, 14)
+    .map((key) => ({
+      year: Number(key.slice(0, 4)),
+      month: Number(key.slice(5, 7)) - 1,
+      key,
+    }));
 }
 
 export function SemesterCalendarView({
+  semesterName,
   semesterStart,
   semesterEnd,
   events,
 }: {
+  semesterName: string;
   semesterStart: string;
   semesterEnd: string;
   events: CalendarEventRow[];
@@ -156,7 +172,7 @@ export function SemesterCalendarView({
     <div className="space-y-6">
       {/* Grade Mensal Colorida */}
       <Panel
-        title="Calendário de Atividades"
+        title={`Calendário de Atividades — ${semesterName}`}
         action={
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             {(
@@ -184,7 +200,7 @@ export function SemesterCalendarView({
       >
         {events.length === 0 ? (
           <Empty>
-            Nenhuma data cadastrada neste semestre ainda. Envie o PDF do calendário acadêmico ao lado ou adicione datas manualmente.
+            Nenhuma data cadastrada em {semesterName} ainda. Envie o PDF do calendário acadêmico ao lado ou adicione datas manualmente.
           </Empty>
         ) : (
           <div className="space-y-5">
@@ -256,7 +272,7 @@ export function SemesterCalendarView({
 
       {/* Lista detalhada com busca, edição e exclusão */}
       <Panel
-        title={selectedDay ? `Datas em ${fmtIsoDate(selectedDay)}` : "Datas importantes do semestre"}
+        title={selectedDay ? `Datas em ${fmtIsoDate(selectedDay)}` : `Datas importantes de ${semesterName}`}
         action={
           <div className="w-full sm:w-64">
             <input

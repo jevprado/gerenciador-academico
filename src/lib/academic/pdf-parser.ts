@@ -879,14 +879,18 @@ export function parseCalendarText(rawText: string, fallbackYear = 2026): ParsedC
     // O PDF às vezes separa o semestre com espaço ("2025. 2"): junta de volta em "2025.2"
     .replace(/\b(20\d{2})\.\s+([1-4])\b/g, "$1.$2");
 
+  // Detecta o semestre principal do documento pelo cabeçalho/frequência (evita confundir
+  // um calendário 2025.2 que apenas cita "2026.1" em uma linha de mobilidade).
+  const docSemester = detectSemesterFromText(text);
+
   // Detecta se é o calendário 2026.1 da UnB pelo cabeçalho ou datas-chave
   const isUnb2026_1 =
     (/Universidade de Bras[íi]lia/i.test(text) || /CALEND[ÁA]RIO UNIVERSIT[ÁA]RIO DE GRADUA[ÇC][ÃA]O/i.test(text)) &&
-    /2026\.1/.test(text);
+    docSemester === "2026.1";
 
-  // Detecta ano base do documento (ex: "2026.1" -> 2026)
+  // Detecta ano base do documento (ex: "2025.2" -> 2025, "2026.1" -> 2026)
   const yearMatch = text.match(/\b(20\d{2})\.[1234]\b/) ?? text.match(/\b(20\d{2})\b/);
-  const baseYear = yearMatch ? Number(yearMatch[1]) : fallbackYear;
+  const baseYear = docSemester ? Number(docSemester.slice(0, 4)) : yearMatch ? Number(yearMatch[1]) : fallbackYear;
 
   type SourceLine = { text: string; legend: boolean };
   const sourceLines: SourceLine[] = [];
@@ -1070,16 +1074,81 @@ export function parseCalendarText(rawText: string, fallbackYear = 2026): ParsedC
   return deduped.sort((a, b) => a.start_date.localeCompare(b.start_date) || a.end_date.localeCompare(b.end_date));
 }
 
+export function inferSemesterFromEvents(events: ParsedCalendarEvent[]): string | null {
+  if (!events.length) return null;
+  const anchor =
+    events.find((e) => /primeiro dia letivo|in[íi]cio do per[íi]odo de aulas/i.test(e.title))?.start_date ??
+    [...events].sort((a, b) => a.start_date.localeCompare(b.start_date))[Math.floor(events.length / 2)]?.start_date;
+  if (!anchor || anchor.length < 7) return null;
+  const year = Number(anchor.slice(0, 4));
+  const month = Number(anchor.slice(5, 7));
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+  return `${year}.${month <= 6 ? 1 : 2}`;
+}
+
+export function detectSemesterFromText(rawText: string, fileName = ""): string | null {
+  // 1) Nome do arquivo costuma trazer o semestre explícito
+  //    (ex.: calendario_2025_2.pdf, 2026.1.pdf, calendario-2025-2.pdf, 20252.pdf, 2_2025.pdf)
+  const filePatterns: [RegExp, number, number][] = [
+    [/(?:^|[^\d])(20\d{2})[._\-\s/]([1-4])(?!\d|[-/]\d{1,2}(?:\D|$))/, 1, 2],
+    [/(?:^|[^\d])(20\d{2})([1-4])(?:\D|$)/, 1, 2],
+    [/(?:^|[^\d])([1-2])[º°]?[._\-\s/](20\d{2})(?:\D|$)/, 2, 1],
+  ];
+  for (const [re, yearIdx, termIdx] of filePatterns) {
+    const m = fileName.match(re);
+    if (m) return `${m[yearIdx]}.${m[termIdx]}`;
+  }
+
+  const text = rawText
+    .replace(/\r\n/g, "\n")
+    .replace(/\b(20\d{2})\s*[./]\s*([1-4])\b/g, "$1.$2");
+
+  // 2) Cabeçalhos e títulos de seção explícitos no documento
+  const headerPatterns: [RegExp, number, number][] = [
+    [/calend[áa]rio[^\n]{0,70}\b(20\d{2})\.([1-4])\b/i, 1, 2],
+    [/gradua[çc][ãa]o[^\n]{0,50}\b(20\d{2})\.([1-4])\b/i, 1, 2],
+    [/per[íi]odo letivo[^\n]{0,40}\b(20\d{2})\.([1-4])\b/i, 1, 2],
+    [/processo de matr[íi]cula[^\n]{0,30}\b(20\d{2})\.([1-4])\b/i, 1, 2],
+    [/^\s*(20\d{2})\.([1-4])\s*$/m, 1, 2],
+    [/\b([1-2])[º°]?\s*(?:semestre|per[íi]odo(?:\s+letivo)?)\s*(?:de\s+|\/\s*)?(20\d{2})\b/i, 2, 1],
+    [/\b([1-2])[º°]\s*\/\s*(20\d{2})\b/i, 2, 1],
+  ];
+  for (const [re, yearIdx, termIdx] of headerPatterns) {
+    const m = text.match(re);
+    if (m) return `${m[yearIdx]}.${m[termIdx]}`;
+  }
+
+  // 3) Fallback: semestre mais frequente no documento (descartando menções de consolidação anterior)
+  const counts = new Map<string, number>();
+  for (const line of text.split("\n")) {
+    if (/consolida[çc][ãa]o/i.test(line)) continue;
+    for (const m of line.matchAll(/\b(20\d{2})\.([1-4])\b/g)) {
+      const key = `${m[1]}.${m[2]}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [k, c] of counts) {
+    if (c > bestCount) {
+      best = k;
+      bestCount = c;
+    }
+  }
+  return best;
+}
+
 export function parsePdfCalendarBuffer(
   pdfBuffer: Buffer,
   fileName = "",
   fallbackYear = 2026,
-): { events: ParsedCalendarEvent[]; usedUnbFallback: boolean } {
+): { events: ParsedCalendarEvent[]; usedUnbFallback: boolean; detectedSemester: string | null } {
   const extractedText = extractTextFromPdfBuffer(pdfBuffer);
   const events = parseCalendarText(extractedText, fallbackYear);
+  const detectedSemester = detectSemesterFromText(extractedText, fileName) ?? inferSemesterFromEvents(events);
 
   if (events.length > 0) {
-    return { events, usedUnbFallback: false };
+    return { events, usedUnbFallback: false, detectedSemester };
   }
 
   // Caso o PDF seja digitalizado (apenas imagens sem camada de texto/OCR) ou use codificação CID proprietária:
@@ -1091,9 +1160,9 @@ export function parsePdfCalendarBuffer(
     extractedText.trim().length < 50;
 
   if (looksLikeUnbOrScanned) {
-    return { events: [...UNB_2026_1_EVENTS], usedUnbFallback: true };
+    return { events: [...UNB_2026_1_EVENTS], usedUnbFallback: true, detectedSemester: detectedSemester ?? "2026.1" };
   }
 
-  return { events: [], usedUnbFallback: false };
+  return { events: [], usedUnbFallback: false, detectedSemester };
 }
 

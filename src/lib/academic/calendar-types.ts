@@ -23,6 +23,18 @@ export type CalendarEventRow = {
   source: "manual" | "pdf";
 };
 
+export type CalendarSemesterOption = {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+  min_average: number;
+  min_attendance: number;
+  eventCount: number;
+  pdfEventCount: number;
+};
+
 export type ParsedCalendarEvent = {
   title: string;
   description: string | null;

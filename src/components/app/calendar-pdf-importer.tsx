@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { FormMessage } from "@/components/auth/form-message";
 import { fieldClass } from "@/components/app/styles";
@@ -10,10 +11,13 @@ import {
   TARGET_OPTIONS,
   UNB_2026_1_EVENTS,
   type CalendarCategory,
+  type CalendarSemesterOption,
   type ParsedCalendarEvent,
 } from "@/lib/academic/calendar-types";
-import { extractCalendarFromPdf, importCalendarEvents } from "@/lib/academic/actions";
+import { extractCalendarFromPdf, importCalendarEvents, type CalendarImportTarget } from "@/lib/academic/actions";
 import { fmtIsoDate } from "@/lib/academic/calc";
+
+const CREATE_NEW_SEMESTER = "__new__";
 
 type PreviewItem = ParsedCalendarEvent & {
   id: string;
@@ -29,28 +33,98 @@ function toPreviewItems(events: ParsedCalendarEvent[], onlyStudentDefault = true
   }));
 }
 
+function findMatchingSemester(
+  semesters: CalendarSemesterOption[],
+  detected: string,
+): CalendarSemesterOption | undefined {
+  const norm = detected.trim().toLowerCase();
+  return (
+    semesters.find((s) => s.name.trim().toLowerCase() === norm) ??
+    semesters.find((s) => s.name.toLowerCase().includes(norm))
+  );
+}
+
+function inferSemesterBounds(items: ParsedCalendarEvent[]): { start: string; end: string } {
+  const firstLetivo = items.find((i) => /primeiro dia letivo/i.test(i.title))?.start_date;
+  const lastLetivo = items.find((i) => /[uú]ltimo dia letivo/i.test(i.title))?.end_date;
+  if (firstLetivo && lastLetivo && lastLetivo > firstLetivo) {
+    return { start: firstLetivo, end: lastLetivo };
+  }
+  const starts = items.map((i) => i.start_date).filter(Boolean).sort();
+  const ends = items.map((i) => i.end_date).filter(Boolean).sort();
+  const start = starts[0] ?? "2026-01-01";
+  let end = ends[ends.length - 1] ?? start;
+  if (end <= start) {
+    const d = new Date(`${start}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 120);
+    end = d.toISOString().slice(0, 10);
+  }
+  return { start, end };
+}
+
 export function CalendarPdfImporter({
-  semesterId,
-  semesterName,
-  fallbackYear,
-  hasExistingEvents,
+  semesters,
+  selectedSemesterId,
 }: {
-  semesterId: string;
-  semesterName: string;
-  fallbackYear: number;
-  hasExistingEvents: boolean;
+  semesters: CalendarSemesterOption[];
+  selectedSemesterId: string;
 }) {
+  const router = useRouter();
+  const selectedSemester = semesters.find((s) => s.id === selectedSemesterId) ?? semesters[0];
+  const fallbackYear = Number(selectedSemester?.start_date.slice(0, 4)) || 2026;
+
   const [items, setItems] = useState<PreviewItem[] | null>(null);
   const [sourceLabel, setSourceLabel] = useState<string>("");
   const [usedFallback, setUsedFallback] = useState(false);
+  const [targetValue, setTargetValue] = useState<string>(selectedSemesterId);
+  const [newSemesterName, setNewSemesterName] = useState<string>("");
+  const [detectedLabel, setDetectedLabel] = useState<string | null>(null);
   const [showPasteText, setShowPasteText] = useState(false);
-  const [replaceExisting, setReplaceExisting] = useState(hasExistingEvents);
+  const [replaceExisting, setReplaceExisting] = useState(false);
   const [filterTarget, setFilterTarget] = useState<"todos" | "estudante" | "admin">("todos");
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isExtracting, startExtract] = useTransition();
   const [isImporting, startImport] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isCreatingNew = targetValue === CREATE_NEW_SEMESTER;
+  const existingTarget = isCreatingNew ? undefined : semesters.find((s) => s.id === targetValue);
+  const hasExistingPdfEvents = !isCreatingNew && (existingTarget?.pdfEventCount ?? 0) > 0;
+  const destinationName = isCreatingNew ? newSemesterName.trim() : (existingTarget?.name ?? "");
+
+  function configureTargetFromDetection(detected: string | null | undefined) {
+    if (!detected) {
+      setDetectedLabel(null);
+      setTargetValue(selectedSemesterId);
+      setNewSemesterName("");
+      setReplaceExisting((selectedSemester?.pdfEventCount ?? 0) > 0);
+      return;
+    }
+
+    setDetectedLabel(detected);
+    const match = findMatchingSemester(semesters, detected);
+    if (match) {
+      setTargetValue(match.id);
+      setNewSemesterName(detected);
+      setReplaceExisting(match.pdfEventCount > 0);
+    } else {
+      // Semestre do PDF ainda não existe: seleciona criação automática como padrão.
+      setTargetValue(CREATE_NEW_SEMESTER);
+      setNewSemesterName(detected);
+      setReplaceExisting(false);
+    }
+  }
+
+  function handleTargetChange(nextValue: string) {
+    setTargetValue(nextValue);
+    if (nextValue === CREATE_NEW_SEMESTER) {
+      setReplaceExisting(false);
+    } else {
+      const next = semesters.find((s) => s.id === nextValue);
+      setReplaceExisting((next?.pdfEventCount ?? 0) > 0);
+    }
+  }
 
   function handleUploadForm(formData: FormData) {
     setError(null);
@@ -66,6 +140,7 @@ export function CalendarPdfImporter({
         setItems(toPreviewItems(res.events, true));
         setSourceLabel(res.fileName ? `Arquivo: ${res.fileName}` : "Texto extraído");
         setUsedFallback(Boolean(res.usedUnbFallback));
+        configureTargetFromDetection(res.detectedSemester);
       }
     });
   }
@@ -76,6 +151,7 @@ export function CalendarPdfImporter({
     setItems(toPreviewItems(UNB_2026_1_EVENTS, true));
     setSourceLabel("Calendário Universitário de Graduação UnB — 2026.1");
     setUsedFallback(false);
+    configureTargetFromDetection("2026.1");
   }
 
   function selectByRule(rule: "all" | "none" | "student") {
@@ -101,6 +177,20 @@ export function CalendarPdfImporter({
       setError("Selecione pelo menos uma data para importar.");
       return;
     }
+
+    let importTarget: CalendarImportTarget;
+    if (isCreatingNew) {
+      const cleanName = newSemesterName.trim();
+      if (!cleanName) {
+        setError("Informe o nome do semestre do calendário (ex.: 2025.2 ou 2026.1).");
+        return;
+      }
+      const { start, end } = inferSemesterBounds(items);
+      importTarget = { mode: "create", name: cleanName, startDate: start, endDate: end };
+    } else {
+      importTarget = { mode: "existing", semesterId: targetValue };
+    }
+
     setError(null);
     startImport(async () => {
       const payload: ParsedCalendarEvent[] = selected.map(({ title, description, category, target, start_date, end_date }) => ({
@@ -111,14 +201,22 @@ export function CalendarPdfImporter({
         start_date,
         end_date,
       }));
-      const res = await importCalendarEvents(semesterId, payload, replaceExisting);
+      const res = await importCalendarEvents(importTarget, payload, replaceExisting);
       if (res.error) {
         setError(res.error);
         return;
       }
-      setSuccessMsg(`${res.count} datas foram importadas para o calendário do semestre ${semesterName}.`);
+      const destId = res.semesterId ?? targetValue;
+      const destName = res.semesterName || destinationName;
       setItems(null);
+      setDetectedLabel(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (destId && destId !== selectedSemesterId) {
+        router.push(`/calendario?semestre=${encodeURIComponent(destId)}`);
+        router.refresh();
+      } else {
+        setSuccessMsg(`${res.count} datas foram importadas para o calendário do semestre ${destName}.`);
+      }
     });
   }
 
@@ -152,7 +250,7 @@ export function CalendarPdfImporter({
               </svg>
               <span className="text-sm font-medium text-foreground">Enviar PDF do calendário acadêmico</span>
               <span className="mt-0.5 text-xs text-muted">
-                Extrai automaticamente períodos de matrícula, datas de aulas, trancamentos e feriados
+                Identifica automaticamente o semestre do PDF (ex.: 2025.2, 2026.1) e adiciona ao seletor
               </span>
               <input
                 ref={fileInputRef}
@@ -230,11 +328,63 @@ export function CalendarPdfImporter({
             </div>
             <button
               type="button"
-              onClick={() => setItems(null)}
+              onClick={() => {
+                setItems(null);
+                setDetectedLabel(null);
+              }}
               className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-card hover:text-foreground"
             >
               Trocar arquivo
             </button>
+          </div>
+
+          {/* Semestre detectado / destino do calendário */}
+          <div className="space-y-2.5 rounded-xl border border-brand/30 bg-brand-soft/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-foreground">Semestre deste calendário</span>
+              {detectedLabel && (
+                <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand dark:text-link">
+                  Detectado no PDF: {detectedLabel}
+                </span>
+              )}
+            </div>
+
+            <select
+              aria-label="Escolher semestre para salvar este calendário"
+              value={targetValue}
+              onChange={(e) => handleTargetChange(e.target.value)}
+              disabled={isImporting}
+              className={`${fieldClass} h-9 text-xs font-medium`}
+            >
+              <option value={CREATE_NEW_SEMESTER}>
+                + Criar novo semestre {newSemesterName.trim() ? `"${newSemesterName.trim()}"` : ""}{" "}
+                {detectedLabel && !findMatchingSemester(semesters, detectedLabel) ? "(detectado no PDF)" : ""}
+              </option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Salvar em {s.name}
+                  {s.is_current ? " (Atual)" : ""}
+                  {s.eventCount > 0 ? ` · ${s.eventCount} data${s.eventCount === 1 ? "" : "s"}` : " · sem datas"}
+                </option>
+              ))}
+            </select>
+
+            {isCreatingNew && (
+              <label className="block space-y-1 text-xs text-muted">
+                <span>Identificação do novo semestre</span>
+                <input
+                  type="text"
+                  value={newSemesterName}
+                  onChange={(e) => setNewSemesterName(e.target.value)}
+                  maxLength={40}
+                  placeholder="Ex.: 2025.2 ou 2026.1"
+                  className={`${fieldClass} h-9 text-xs`}
+                />
+                <span className="block text-[11px] text-muted">
+                  Será criado automaticamente ao salvar (sem alterar seu semestre atual) e aparecerá no seletor acima.
+                </span>
+              </label>
+            )}
           </div>
 
           {/* Controles rápidos de seleção e filtro */}
@@ -403,7 +553,7 @@ export function CalendarPdfImporter({
             })}
           </ul>
 
-          {hasExistingEvents && (
+          {hasExistingPdfEvents && (
             <label className="flex items-center gap-2 text-xs text-muted">
               <input
                 type="checkbox"
@@ -411,7 +561,7 @@ export function CalendarPdfImporter({
                 onChange={(e) => setReplaceExisting(e.target.checked)}
                 className="h-4 w-4 accent-brand"
               />
-              Substituir datas importadas anteriormente por PDF neste semestre (mantém datas criadas manualmente)
+              Substituir datas importadas anteriormente por PDF em {existingTarget?.name} (mantém datas criadas manualmente)
             </label>
           )}
 
@@ -419,14 +569,19 @@ export function CalendarPdfImporter({
             <button
               type="button"
               onClick={handleConfirmImport}
-              disabled={isImporting || selectedCount === 0}
+              disabled={isImporting || selectedCount === 0 || (isCreatingNew && !newSemesterName.trim())}
               className="h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:opacity-60"
             >
-              {isImporting ? "Importando…" : `Salvar ${selectedCount} data${selectedCount === 1 ? "" : "s"} no calendário`}
+              {isImporting
+                ? "Importando…"
+                : `Salvar ${selectedCount} data${selectedCount === 1 ? "" : "s"}${destinationName ? ` em ${destinationName}` : ""}`}
             </button>
             <button
               type="button"
-              onClick={() => setItems(null)}
+              onClick={() => {
+                setItems(null);
+                setDetectedLabel(null);
+              }}
               disabled={isImporting}
               className="h-10 rounded-lg border border-line px-4 text-sm font-medium text-muted transition hover:bg-card hover:text-foreground"
             >
