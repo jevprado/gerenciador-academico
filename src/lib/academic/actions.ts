@@ -396,7 +396,7 @@ export async function extractCalendarFromPdf(fd: FormData): Promise<PdfExtractRe
     if (!events.length) {
       return {
         error:
-          "Não foi possível identificar datas neste PDF (ele pode estar digitalizado como imagem). Use a opção de colar o texto ou carregar o modelo UnB 2026.1.",
+          "Não foi possível identificar datas neste PDF (ele pode estar digitalizado como imagem). Use a opção de colar o texto manualmente.",
       };
     }
     return { events, usedUnbFallback, fileName: file.name, detectedSemester };

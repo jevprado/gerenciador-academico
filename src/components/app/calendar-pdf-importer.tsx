@@ -9,7 +9,6 @@ import {
   CATEGORY_META,
   isStudentRelevantTarget,
   TARGET_OPTIONS,
-  UNB_2026_1_EVENTS,
   type CalendarCategory,
   type CalendarSemesterOption,
   type ParsedCalendarEvent,
@@ -143,15 +142,6 @@ export function CalendarPdfImporter({
         configureTargetFromDetection(res.detectedSemester);
       }
     });
-  }
-
-  function handleLoadUnbExample() {
-    setError(null);
-    setSuccessMsg(null);
-    setItems(toPreviewItems(UNB_2026_1_EVENTS, true));
-    setSourceLabel("Calendário Universitário de Graduação UnB — 2026.1");
-    setUsedFallback(false);
-    configureTargetFromDetection("2026.1");
   }
 
   function selectByRule(rule: "all" | "none" | "student") {
@@ -289,15 +279,7 @@ export function CalendarPdfImporter({
             )}
           </form>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-            <button
-              type="button"
-              onClick={handleLoadUnbExample}
-              disabled={isExtracting}
-              className="rounded-lg bg-brand-soft px-3 py-1.5 font-medium text-brand transition hover:opacity-90 dark:text-link"
-            >
-              Carregar modelo UnB 2026.1
-            </button>
+          <div className="flex justify-end pt-1 text-xs">
             <button
               type="button"
               onClick={() => setShowPasteText((v) => !v)}
