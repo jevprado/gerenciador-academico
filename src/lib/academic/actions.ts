@@ -9,6 +9,7 @@ import {
   parseCalendarText,
   parsePdfCalendarBuffer,
 } from "@/lib/academic/pdf-parser";
+import { parseEnrollmentPdf, type ParsedEnrollment, type ParsedEnrollmentSubject, type SubjectSchedule } from "@/lib/academic/sigaa";
 import { createClient } from "@/lib/supabase/server";
 
 // Estado devolvido aos formulários. `ok` muda a cada sucesso para o form se limpar.
@@ -507,3 +508,151 @@ export async function importCalendarEvents(
   return { count: rows.length, semesterId, semesterName };
 }
 
+
+// ---------------------------------------------------------------------------
+// Disciplinas a partir do Atestado de Matrícula (SIGAA)
+// ---------------------------------------------------------------------------
+export type EnrollmentPreviewSubject = ParsedEnrollmentSubject & { alreadyExists: boolean };
+
+export type EnrollmentExtractResult = {
+  error?: string;
+  period?: ParsedEnrollment["period"];
+  subjects?: EnrollmentPreviewSubject[];
+  fileName?: string;
+};
+
+const normCode = (code: string | null | undefined) => (code ?? "").trim().toUpperCase();
+
+async function existingSubjectCodes(supabase: Awaited<ReturnType<typeof db>>, semesterId: string) {
+  const { data, error } = await supabase.from("subjects").select("code").eq("semester_id", semesterId);
+  if (error) return { error, codes: new Set<string>() };
+  return { error: null, codes: new Set((data ?? []).map((s) => normCode(s.code)).filter(Boolean)) };
+}
+
+export async function extractSubjectsFromPdf(fd: FormData): Promise<EnrollmentExtractResult> {
+  const supabase = await db();
+  const semesterId = fd.get("semester_id");
+  if (typeof semesterId !== "string" || !semesterId) return { error: "Semestre inválido." };
+
+  const file = fd.get("pdf");
+  if (!(file instanceof File) || file.size === 0) return { error: "Selecione um arquivo PDF válido." };
+  if (file.size > 5 * 1024 * 1024) return { error: "O arquivo PDF deve ter no máximo 5 MB." };
+
+  let parsed: ParsedEnrollment;
+  try {
+    parsed = parseEnrollmentPdf(Buffer.from(await file.arrayBuffer()));
+  } catch (e) {
+    console.error("[disciplinas] Erro ao ler PDF:", e);
+    return { error: "Não foi possível processar o arquivo PDF enviado." };
+  }
+  if (!parsed.subjects.length) {
+    return {
+      error: "Nenhuma disciplina encontrada. Envie o Atestado de Matrícula emitido pelo SIGAA (Portal Discente → Ensino → Atestado de Matrícula).",
+    };
+  }
+
+  const { error, codes } = await existingSubjectCodes(supabase, semesterId);
+  if (error) {
+    console.error("[disciplinas] Erro ao consultar disciplinas:", error);
+    return { error: dbMessage(error) };
+  }
+  return {
+    period: parsed.period,
+    fileName: file.name,
+    subjects: parsed.subjects.map((s) => ({ ...s, alreadyExists: codes.has(normCode(s.code)) })),
+  };
+}
+
+export type SubjectImportItem = {
+  name: string;
+  code: string;
+  professor: string | null;
+  room: string | null;
+  color: string;
+  workload_hours: number;
+  schedules: SubjectSchedule[];
+};
+
+const clip = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+export async function importSubjects(
+  semesterId: string,
+  items: SubjectImportItem[],
+): Promise<{ error?: string; count?: number; skipped?: number }> {
+  if (!semesterId) return { error: "Semestre inválido." };
+  if (!Array.isArray(items) || !items.length) return { error: "Selecione pelo menos uma disciplina para adicionar." };
+
+  // Os dados vêm do navegador: valida tudo de novo antes de gravar.
+  const clean: (Omit<SubjectImportItem, "code"> & { code: string })[] = [];
+  for (const item of items.slice(0, 30)) {
+    const name = clip(item?.name, 120);
+    const code = normCode(clip(item?.code, 30));
+    const workload = Math.round(Number(item?.workload_hours));
+    if (!name || !code) return { error: "Toda disciplina precisa de nome e código." };
+    if (!Number.isFinite(workload) || workload < 1 || workload > 1000) return { error: `Carga horária inválida em ${name}.` };
+    const schedules = (Array.isArray(item.schedules) ? item.schedules : []).slice(0, 14);
+    for (const r of schedules) {
+      if (!Number.isInteger(r?.weekday) || r.weekday < 0 || r.weekday > 6) return { error: `Dia da semana inválido em ${name}.` };
+      if (!TIME_RE.test(r.start_time) || !TIME_RE.test(r.end_time) || r.end_time <= r.start_time) {
+        return { error: `Confira os horários de ${name}.` };
+      }
+    }
+    if (clean.some((c) => c.code === code)) continue;
+    clean.push({
+      name,
+      code,
+      professor: clip(item.professor, 120),
+      room: clip(item.room, 60),
+      color: typeof item.color === "string" && COLOR_RE.test(item.color) ? item.color : "#275e4c",
+      workload_hours: workload,
+      schedules: schedules.map(({ weekday, start_time, end_time }) => ({ weekday, start_time, end_time })),
+    });
+  }
+
+  const supabase = await db();
+  const existing = await existingSubjectCodes(supabase, semesterId);
+  if (existing.error) {
+    console.error("[disciplinas] Erro ao consultar disciplinas:", existing.error);
+    return { error: dbMessage(existing.error) };
+  }
+  // Não duplica disciplinas que já estão no semestre (mesmo código).
+  const fresh = clean.filter((c) => !existing.codes.has(c.code));
+  const skipped = items.length - fresh.length;
+  if (!fresh.length) return { error: "Essas disciplinas já estão cadastradas neste semestre." };
+
+  const { data: created, error } = await supabase
+    .from("subjects")
+    .insert(
+      fresh.map(({ name, code, professor, room, color, workload_hours }) => ({
+        name,
+        code,
+        professor,
+        room,
+        color,
+        workload_hours,
+        semester_id: semesterId,
+      })),
+    )
+    .select("id, code");
+  if (error || !created) {
+    if (error) console.error("[disciplinas] Erro ao importar disciplinas:", error);
+    return { error: error ? dbMessage(error) : "Não foi possível adicionar as disciplinas." };
+  }
+
+  const idByCode = new Map(created.map((c) => [normCode(c.code), c.id as string]));
+  const scheduleRows = fresh.flatMap((s) =>
+    s.schedules.map((r) => ({ ...r, subject_id: idByCode.get(s.code)! })).filter((r) => r.subject_id),
+  );
+  if (scheduleRows.length) {
+    const res = await supabase.from("class_schedules").insert(scheduleRows);
+    if (res.error) {
+      console.error("[disciplinas] Erro ao gravar horários:", res.error);
+      // Desfaz para não deixar disciplinas sem horário pela metade.
+      await supabase.from("subjects").delete().in("id", created.map((c) => c.id));
+      return { error: dbMessage(res.error) };
+    }
+  }
+
+  refresh();
+  return { count: created.length, skipped };
+}

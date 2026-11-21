@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/app/forms";
 import { fieldClass } from "@/components/app/styles";
+import { SubjectPdfImporter } from "@/components/app/subject-pdf-importer";
 import { Badge, Empty, Field, NoCurrentSemester, PageTitle, Panel, ScheduleFields } from "@/components/app/ui";
 import { createSubject } from "@/lib/academic/actions";
 import { WEEKDAYS, fmtGrade, maxAbsences, partialAverage } from "@/lib/academic/calc";
@@ -35,9 +36,14 @@ async function Content() {
         <Panel title="Matérias do semestre">
           <SubjectList semester={semester} />
         </Panel>
-        <Panel title="Nova disciplina" id="nova">
-          <SubjectForm semesterId={semester.id} />
-        </Panel>
+        <div className="space-y-6">
+          <Panel title="Importar do SIGAA" id="importar">
+            <SubjectPdfImporter semesterId={semester.id} semesterName={semester.name} />
+          </Panel>
+          <Panel title="Nova disciplina" id="nova">
+            <SubjectForm semesterId={semester.id} />
+          </Panel>
+        </div>
       </div>
     </>
   );
@@ -45,7 +51,7 @@ async function Content() {
 
 async function SubjectList({ semester }: { semester: SemesterRow }) {
   const subjects = await listSubjects(semester.id);
-  if (!subjects.length) return <Empty>Nenhuma disciplina cadastrada. Use o formulário ao lado.</Empty>;
+  if (!subjects.length) return <Empty>Nenhuma disciplina cadastrada. Importe o atestado do SIGAA ou use o formulário ao lado.</Empty>;
   return (
     <ul className="divide-y divide-line">
       {subjects.map((s) => {

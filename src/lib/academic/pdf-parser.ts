@@ -498,7 +498,7 @@ function scanContent(text: string, onOp: (op: string, args: Operand[]) => void) 
   }
 }
 
-type Frag = { x: number; y: number; text: string; width: number };
+type Frag = { x: number; y: number; text: string; width: number; size: number };
 
 function extractPageFragments(
   contents: Buffer[],
@@ -520,7 +520,7 @@ function extractPageFragments(
     if (!piece) return;
     const scale = Math.hypot(tm[0], tm[1]) || 1;
     const width = piece.length * fontSize * scale * 0.5;
-    frags.push({ x: tm[4], y: tm[5], text: piece, width });
+    frags.push({ x: tm[4], y: tm[5], text: piece, width, size: fontSize * scale });
     tm = [tm[0], tm[1], tm[2], tm[3], tm[4] + width, tm[5]];
   };
   const decode = (v: Operand) => (Buffer.isBuffer(v) ? decodeWithFont(v, font) : "");
@@ -586,7 +586,10 @@ function extractPageFragments(
   return frags;
 }
 
-function fragmentsToLines(frags: Frag[]): string[] {
+/** Linha de texto da página com a posição vertical e os fragmentos (x, tamanho da fonte). */
+export type PdfRow = { y: number; text: string; items: { x: number; text: string; size: number }[] };
+
+function fragmentsToRows(frags: Frag[]): PdfRow[] {
   const rows: { y: number; items: Frag[] }[] = [];
   for (const f of frags) {
     const existing = rows.find((r) => Math.abs(r.y - f.y) <= 3.5);
@@ -595,7 +598,7 @@ function fragmentsToLines(frags: Frag[]): string[] {
   }
 
   rows.sort((a, b) => b.y - a.y);
-  const lines: string[] = [];
+  const out: PdfRow[] = [];
   for (const r of rows) {
     r.items.sort((a, b) => a.x - b.x);
     let line = "";
@@ -606,9 +609,9 @@ function fragmentsToLines(frags: Frag[]): string[] {
       prevEnd = item.x + item.width;
     }
     const cleaned = line.replace(/\s+/g, " ").trim();
-    if (cleaned) lines.push(cleaned);
+    if (cleaned) out.push({ y: r.y, text: cleaned, items: r.items.map(({ x, text, size }) => ({ x, text, size })) });
   }
-  return lines;
+  return out;
 }
 
 function refList(value: string | null): number[] {
@@ -640,10 +643,15 @@ function collectPages(objects: PdfObjects): { body: string; resources: string | 
   return pages;
 }
 
-export function extractTextFromPdfBuffer(pdfBuffer: Buffer): string {
+/**
+ * Linhas de cada página, da maior para a menor coordenada y. Em PDFs gerados
+ * pelo navegador (ex.: SIGAA) o eixo y cresce para baixo, então a ordem de
+ * leitura fica invertida — quem consome decide a direção.
+ */
+export function extractPdfRows(pdfBuffer: Buffer): PdfRow[][] {
   const objects = collectObjects(pdfBuffer);
   const fontCache = new Map<number, FontDecoder>();
-  const lines: string[] = [];
+  const pages: PdfRow[][] = [];
 
   for (const page of collectPages(objects)) {
     const fonts = new Map<string, FontDecoder>();
@@ -670,10 +678,17 @@ export function extractTextFromPdfBuffer(pdfBuffer: Buffer): string {
           .filter((b): b is Buffer => b !== null);
       });
 
-    lines.push(...fragmentsToLines(extractPageFragments(contents, fonts)));
+    pages.push(fragmentsToRows(extractPageFragments(contents, fonts)));
   }
 
-  return lines.join("\n");
+  return pages;
+}
+
+export function extractTextFromPdfBuffer(pdfBuffer: Buffer): string {
+  return extractPdfRows(pdfBuffer)
+    .flat()
+    .map((r) => r.text)
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
