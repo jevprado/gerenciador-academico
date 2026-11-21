@@ -1,6 +1,14 @@
 import "server-only";
 
 import { notFound, redirect } from "next/navigation";
+import {
+  buildClassSessions,
+  summarizeAttendance,
+  teachingPeriod,
+  todayInBrasilia,
+  type AttendanceStatus,
+} from "@/lib/academic/attendance";
+import { maxAbsences } from "@/lib/academic/calc";
 import type { CalendarEventRow, CalendarSemesterOption } from "@/lib/academic/calendar-types";
 import { dbError } from "@/lib/supabase/db-error";
 import { createClient } from "@/lib/supabase/server";
@@ -62,7 +70,7 @@ export type SubjectListRow = {
   min_attendance: number | null;
   class_schedules: Schedule[];
   assessments: { weight: number; max_grade: number; grade: number | null }[];
-  absences: { quantity: number }[];
+  class_attendance: { status: string; hours: number }[];
 };
 
 export async function listSubjects(semesterId: string) {
@@ -70,7 +78,7 @@ export async function listSubjects(semesterId: string) {
   const { data, error } = await supabase
     .from("subjects")
     .select(
-      "id, name, code, professor, color, status, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time, end_time), assessments(weight, max_grade, grade), absences(quantity)",
+      "id, name, code, professor, color, status, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time, end_time), assessments(weight, max_grade, grade), class_attendance(status, hours)",
     )
     .eq("semester_id", semesterId)
     .order("name")
@@ -79,7 +87,7 @@ export async function listSubjects(semesterId: string) {
   return data ?? [];
 }
 
-export type SubjectDetail = Omit<SubjectListRow, "assessments" | "absences"> & {
+export type SubjectDetail = Omit<SubjectListRow, "assessments" | "class_attendance"> & {
   room: string | null;
   semesters: SemesterRow;
   assessments: {
@@ -91,7 +99,7 @@ export type SubjectDetail = Omit<SubjectListRow, "assessments" | "absences"> & {
     max_grade: number;
     grade: number | null;
   }[];
-  absences: { id: string; date: string; quantity: number }[];
+  class_attendance: { date: string; status: AttendanceStatus; hours: number }[];
 };
 
 export async function getSubject(id: string) {
@@ -101,11 +109,10 @@ export async function getSubject(id: string) {
   const { data, error } = await supabase
     .from("subjects")
     .select(
-      "id, name, code, professor, room, color, status, workload_hours, min_average, min_attendance, semesters(id, name, start_date, end_date, is_current, min_average, min_attendance), class_schedules(weekday, start_time, end_time), assessments(id, name, type, date, weight, max_grade, grade), absences(id, date, quantity)",
+      "id, name, code, professor, room, color, status, workload_hours, min_average, min_attendance, semesters(id, name, start_date, end_date, is_current, min_average, min_attendance), class_schedules(weekday, start_time, end_time), assessments(id, name, type, date, weight, max_grade, grade), class_attendance(date, status, hours)",
     )
     .eq("id", id)
     .order("date", { referencedTable: "assessments", ascending: true, nullsFirst: false })
-    .order("date", { referencedTable: "absences", ascending: false })
     .maybeSingle<SubjectDetail>();
   if (error) throw dbError(error);
   if (!data) notFound();
@@ -172,3 +179,26 @@ export async function listCalendarEvents(semesterId: string) {
   return data ?? [];
 }
 
+
+/** Disciplina + todas as datas de aula do semestre (com feriados do calendário) + resumo de faltas. */
+export async function getSubjectAttendance(id: string) {
+  const subject = await getSubject(id);
+  const events = await listCalendarEvents(subject.semesters.id);
+  const today = todayInBrasilia();
+  const sessions = buildClassSessions({
+    schedules: subject.class_schedules,
+    marks: subject.class_attendance,
+    events,
+    semester: subject.semesters,
+    today,
+  });
+  const maxAbs = maxAbsences(subject.workload_hours, Number(subject.min_attendance ?? subject.semesters.min_attendance));
+  return {
+    subject,
+    sessions,
+    today,
+    hasCalendar: events.length > 0,
+    period: teachingPeriod(subject.semesters, events),
+    summary: summarizeAttendance(sessions, maxAbs, today),
+  };
+}

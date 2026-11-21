@@ -6,6 +6,7 @@ import { fieldClass } from "@/components/app/styles";
 import { SubjectPdfImporter } from "@/components/app/subject-pdf-importer";
 import { Badge, Empty, Field, NoCurrentSemester, PageTitle, Panel, ScheduleFields } from "@/components/app/ui";
 import { createSubject } from "@/lib/academic/actions";
+import { absenceHours } from "@/lib/academic/attendance";
 import { WEEKDAYS, fmtGrade, maxAbsences, partialAverage } from "@/lib/academic/calc";
 import { getCurrentSemester, listSubjects, type SemesterRow } from "@/lib/academic/queries";
 
@@ -57,7 +58,7 @@ async function SubjectList({ semester }: { semester: SemesterRow }) {
       {subjects.map((s) => {
         const avg = partialAverage(s.assessments);
         const min = Number(s.min_average ?? semester.min_average);
-        const abs = s.absences.reduce((a, x) => a + x.quantity, 0);
+        const abs = absenceHours(s.class_attendance);
         const maxAbs = maxAbsences(s.workload_hours, Number(s.min_attendance ?? semester.min_attendance));
         const days = [...new Set(s.class_schedules.map((c) => c.weekday))].sort().map((d) => WEEKDAYS[d]).join(", ");
         return (

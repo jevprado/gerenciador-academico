@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
+import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@/lib/academic/attendance";
 import { CALENDAR_CATEGORIES, type ParsedCalendarEvent } from "@/lib/academic/calendar-types";
 import {
   detectSemesterFromText,
@@ -56,7 +57,7 @@ function date(fd: FormData, name: string, required = true) {
 
 // Erros do banco em linguagem não técnica (RNF06).
 function dbMessage(error: { code?: string; message: string }) {
-  if (error.code === "PGRST205" || error.code === "42P01") {
+  if (error.code === "PGRST205" || error.code === "PGRST200" || error.code === "42P01") {
     return "Tabela não encontrada no Supabase. Rode a migração mais recente em supabase/migrations no SQL Editor.";
   }
   if (error.code === "23514") return "Algum valor está fora do permitido. Confira datas e números.";
@@ -243,23 +244,65 @@ export async function deleteAssessment(id: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Faltas
+// Frequência (uma marcação por disciplina e data)
 // ---------------------------------------------------------------------------
-export async function createAbsence(subjectId: string, _: FormState, fd: FormData) {
-  return run(async () => {
-    const supabase = await db();
-    return supabase.from("absences").insert({
-      subject_id: subjectId,
-      date: date(fd, "date"),
-      quantity: num(fd, "quantity", { required: true, min: 1, max: 20, label: "a quantidade" }),
-    });
-  }, fd);
+type AttendanceInput = { date: string; hours: number };
+
+function validAttendance(items: AttendanceInput[]) {
+  return items.every(
+    (i) => DATE_RE.test(i?.date ?? "") && Number.isInteger(i.hours) && i.hours >= 1 && i.hours <= 12,
+  );
 }
 
-export async function deleteAbsence(id: string) {
+/** Marca (ou desmarca, com status null) a frequência de um dia de aula. */
+export async function setAttendance(
+  subjectId: string,
+  date: string,
+  hours: number,
+  status: AttendanceStatus | null,
+): Promise<{ error?: string }> {
+  if (!validAttendance([{ date, hours }])) return { error: "Data de aula inválida." };
+  if (status !== null && !(ATTENDANCE_STATUSES as readonly string[]).includes(status)) return { error: "Status inválido." };
   const supabase = await db();
-  await supabase.from("absences").delete().eq("id", id);
+  const { error } =
+    status === null
+      ? await supabase.from("class_attendance").delete().eq("subject_id", subjectId).eq("date", date)
+      : await supabase
+          .from("class_attendance")
+          .upsert(
+            { subject_id: subjectId, date, hours, status, updated_at: new Date().toISOString() },
+            { onConflict: "subject_id,date" },
+          );
+  if (error) {
+    console.error("[frequencia] Erro ao salvar:", error);
+    return { error: dbMessage(error) };
+  }
   refresh();
+  return {};
+}
+
+/** Marca de uma vez várias aulas (ex.: todas as passadas sem registro como presença). */
+export async function markAttendanceBulk(
+  subjectId: string,
+  items: AttendanceInput[],
+  status: AttendanceStatus,
+): Promise<{ error?: string; count?: number }> {
+  if (!Array.isArray(items) || !items.length || items.length > 200 || !validAttendance(items)) {
+    return { error: "Nenhuma aula válida para marcar." };
+  }
+  if (!(ATTENDANCE_STATUSES as readonly string[]).includes(status)) return { error: "Status inválido." };
+  const supabase = await db();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("class_attendance").upsert(
+    items.map(({ date, hours }) => ({ subject_id: subjectId, date, hours, status, updated_at: now })),
+    { onConflict: "subject_id,date" },
+  );
+  if (error) {
+    console.error("[frequencia] Erro ao salvar em lote:", error);
+    return { error: dbMessage(error) };
+  }
+  refresh();
+  return { count: items.length };
 }
 
 // ---------------------------------------------------------------------------
