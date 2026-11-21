@@ -25,7 +25,7 @@ async function Content({ params }: { params: PageProps<"/disciplinas/[id]/freque
     <>
       <PageTitle
         title={`Frequência · ${subject.name}`}
-        subtitle={`Aulas de ${fmtIsoDate(period.start)} a ${fmtIsoDate(period.end)}${period.fromCalendar ? " (período letivo do calendário)" : " (datas do semestre)"}`}
+        subtitle={`Aulas de ${fmtIsoDate(period.start)} a ${fmtIsoDate(period.end)}${period.fromCalendar ? " (conforme o calendário acadêmico)" : " (datas do semestre)"}`}
         back={{ href: `/disciplinas/${subject.id}`, label: subject.name }}
       />
 

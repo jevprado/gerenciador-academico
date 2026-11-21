@@ -41,17 +41,33 @@ export const STATUS_META: Record<SessionStatus, { label: string; className: stri
 // Eventos que suspendem aulas, além das categorias feriado / ponto facultativo.
 const NO_CLASS_RE =
   /semana universit|recesso|feriado|sem aulas?\b|suspens[ãa]o d[ae]s? (aulas|atividades)|n[ãa]o haver[áa] aulas?/i;
-const FIRST_DAY_RE = /primeiro dia letivo|in[íi]cio d[oa]s? (per[íi]odo letivo|aulas|semestre letivo)/i;
-const LAST_DAY_RE = /[úu]ltimo dia letivo|t[ée]rmino d[oa]s? (per[íi]odo letivo|aulas|semestre letivo)/i;
+// Em ordem de preferência: o dia letivo pode começar antes das aulas (ex.: UnB 2026.2 tem
+// "Primeiro dia letivo" em 22/07 e "Primeiro dia de aulas" em 10/08). Faltas contam das aulas.
+const FIRST_DAY_RES = [
+  /(primeiro|1[ºo°]) dia de aulas?|in[íi]cio d[ao]s aulas/i,
+  /primeiro dia letivo|in[íi]cio d[oa]s? (per[íi]odo|semestre) letivo/i,
+];
+const LAST_DAY_RES = [
+  /[úu]ltimo dia de aulas?|t[ée]rmino d[ao]s aulas|encerramento d[ao]s aulas/i,
+  /[úu]ltimo dia letivo|t[ée]rmino d[oa]s? (per[íi]odo|semestre) letivo/i,
+];
+
+const findByPriority = (events: EventLike[], patterns: RegExp[]) => {
+  for (const re of patterns) {
+    const hit = events.find((e) => re.test(e.title));
+    if (hit) return hit;
+  }
+  return undefined;
+};
 
 export function suspendsClasses(e: EventLike) {
   return e.category === "feriado" || e.category === "ponto_facultativo" || NO_CLASS_RE.test(e.title);
 }
 
-/** Período de aulas: "Primeiro/Último dia letivo" do calendário ou, sem isso, as datas do semestre. */
+/** Período de aulas: primeiro/último dia de aula do calendário (ou dia letivo); sem isso, as datas do semestre. */
 export function teachingPeriod(semester: { start_date: string; end_date: string }, events: EventLike[]) {
-  const first = events.find((e) => FIRST_DAY_RE.test(e.title))?.start_date;
-  const last = events.find((e) => LAST_DAY_RE.test(e.title))?.end_date;
+  const first = findByPriority(events, FIRST_DAY_RES)?.start_date;
+  const last = findByPriority(events, LAST_DAY_RES)?.end_date;
   const start = first ?? semester.start_date;
   const end = last && last > start ? last : semester.end_date;
   return { start, end, fromCalendar: Boolean(first || last) };
