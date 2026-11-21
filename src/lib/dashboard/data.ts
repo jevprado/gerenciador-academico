@@ -1,5 +1,6 @@
 import "server-only";
 
+import { absenceHours } from "@/lib/academic/attendance";
 import { TYPE_LABEL, WEEKDAYS, maxAbsences, partialAverage } from "@/lib/academic/calc";
 import { dbError } from "@/lib/supabase/db-error";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +43,7 @@ type SubjectRow = {
   min_attendance: number | null;
   class_schedules: { weekday: number; start_time: string }[];
   assessments: { weight: number; max_grade: number; grade: number | null }[];
-  absences: { quantity: number }[];
+  class_attendance: { status: string; hours: number }[];
 };
 
 // Lê o semestre atual do usuário logado. RLS garante que só vêm os dados dele.
@@ -61,7 +62,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("subjects")
       .select(
-        "id, name, professor, color, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time), assessments(weight, max_grade, grade), absences(quantity)",
+        "id, name, professor, color, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time), assessments(weight, max_grade, grade), class_attendance(status, hours)",
       )
       .eq("semester_id", sem.id)
       .eq("status", "cursando")
@@ -89,7 +90,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       color: s.color,
       average,
       minAverage: Number(s.min_average ?? sem.min_average),
-      absences: s.absences.reduce((acc, a) => acc + a.quantity, 0),
+      absences: absenceHours(s.class_attendance),
       maxAbsences: maxAbsences(s.workload_hours, minAttendance),
       nextClass: first ? `${WEEKDAYS[first.weekday]} · ${first.start_time.slice(0, 5)}` : null,
     };

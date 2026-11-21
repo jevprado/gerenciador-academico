@@ -3,17 +3,16 @@ import { Suspense } from "react";
 import { ActionButton, ActionForm } from "@/components/app/forms";
 import { fieldClass } from "@/components/app/styles";
 import { Badge, Empty, Field, PageTitle, Panel, ScheduleFields } from "@/components/app/ui";
+import { AttendanceBoard } from "@/components/app/attendance-board";
 import {
-  createAbsence,
   createAssessment,
-  deleteAbsence,
   deleteAssessment,
   deleteSubject,
   setGrade,
   updateSubject,
 } from "@/lib/academic/actions";
-import { TYPE_LABEL, fmtGrade, fmtIsoDate, maxAbsences, partialAverage } from "@/lib/academic/calc";
-import { getSubject, type SubjectDetail } from "@/lib/academic/queries";
+import { TYPE_LABEL, fmtGrade, fmtIsoDate, partialAverage } from "@/lib/academic/calc";
+import { getSubjectAttendance, type SubjectDetail } from "@/lib/academic/queries";
 
 export const metadata: Metadata = { title: "Disciplina" };
 
@@ -27,11 +26,10 @@ export default function DisciplinaPage(props: PageProps<"/disciplinas/[id]">) {
 
 async function Content({ params }: { params: PageProps<"/disciplinas/[id]">["params"] }) {
   const { id } = await params;
-  const s = await getSubject(id);
+  const { subject: s, summary } = await getSubjectAttendance(id);
   const minAvg = Number(s.min_average ?? s.semesters.min_average);
-  const maxAbs = maxAbsences(s.workload_hours, Number(s.min_attendance ?? s.semesters.min_attendance));
   const avg = partialAverage(s.assessments);
-  const abs = s.absences.reduce((a, x) => a + x.quantity, 0);
+  const { absentHours: abs, maxAbsenceHours: maxAbs } = summary;
   const totalWeight = s.assessments.reduce((a, x) => a + Number(x.weight), 0);
   const pending = s.assessments.filter((a) => a.grade === null);
   // Média que falta nas avaliações sem nota para fechar com a mínima (RF26).
@@ -98,38 +96,7 @@ async function Content({ params }: { params: PageProps<"/disciplinas/[id]">["par
         </Panel>
 
         <div className="space-y-6">
-          <Panel title="Faltas">
-            <ActionForm action={createAbsence.bind(null, s.id)} submitLabel="Registrar" className="flex flex-wrap items-end gap-3">
-              <div className="flex-1">
-                <Field label="Data">
-                  <input type="date" name="date" required className={fieldClass} />
-                </Field>
-              </div>
-              <div className="w-28">
-                <Field label="Horas-aula">
-                  <input name="quantity" inputMode="numeric" required defaultValue="2" className={fieldClass} />
-                </Field>
-              </div>
-            </ActionForm>
-            <div className="mt-4">
-              {s.absences.length === 0 ? (
-                <Empty>Nenhuma falta registrada.</Empty>
-              ) : (
-                <ul className="divide-y divide-line text-sm">
-                  {s.absences.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between py-2">
-                      <span>
-                        {fmtIsoDate(a.date)} · {a.quantity}h
-                      </span>
-                      <ActionButton action={deleteAbsence.bind(null, a.id)} variant="danger" confirm="Remover esta falta?">
-                        Remover
-                      </ActionButton>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Panel>
+          <AttendanceBoard subjectId={s.id} summary={summary} hasSchedule={s.class_schedules.length > 0} />
 
           <Panel title="Dados da disciplina">
             <ActionForm action={updateSubject.bind(null, s.id)} resetOnSuccess={false} successMessage="Alterações salvas.">
