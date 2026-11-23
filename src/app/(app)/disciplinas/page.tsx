@@ -113,7 +113,7 @@ function SubjectForm({ semesterId }: { semesterId: string }) {
           <input name="workload_hours" inputMode="numeric" required defaultValue="60" className={fieldClass} />
         </Field>
         <Field label="Cor">
-          <input type="color" name="color" defaultValue="#275e4c" className="h-10 w-16 cursor-pointer rounded-lg border border-line bg-card p-1" />
+          <input type="color" name="color" defaultValue="#285c47" className="h-10 w-16 cursor-pointer rounded-lg border border-line bg-card p-1" />
         </Field>
       </div>
       <ScheduleFields />
