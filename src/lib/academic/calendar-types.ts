@@ -76,10 +76,10 @@ export const CATEGORY_META: Record<
   academico: {
     label: "Datas Acadêmicas",
     shortLabel: "Acadêmico",
-    dotClass: "bg-emerald-600 dark:bg-emerald-400",
+    dotClass: "bg-accent",
     cellClass:
-      "bg-emerald-500/25 text-emerald-950 font-semibold ring-1 ring-inset ring-emerald-600/40 dark:bg-emerald-500/25 dark:text-emerald-100 dark:ring-emerald-400/40",
-    badgeClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+      "bg-brand-soft/70 text-brand-hover font-semibold ring-1 ring-inset ring-accent/50",
+    badgeClass: "bg-brand-soft text-brand-hover",
     priority: 4,
   },
   matricula: {

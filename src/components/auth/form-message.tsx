@@ -2,7 +2,7 @@ export function FormMessage({ kind, children }: { kind: "error" | "success"; chi
   const styles =
     kind === "error"
       ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300"
-      : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300";
+      : "border-accent/40 bg-brand-soft/40 text-brand-hover";
 
   return (
     <p role={kind === "error" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${styles}`}>

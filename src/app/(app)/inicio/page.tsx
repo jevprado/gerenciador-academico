@@ -201,7 +201,7 @@ function Shortcut({ href, icon: Icon, label }: { href: string; icon: (p: Compone
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm font-medium transition hover:border-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-brand"
+      className="flex items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm font-medium transition hover:border-accent hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-brand"
     >
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-soft text-brand dark:text-link">
         <Icon className="h-4 w-4" />

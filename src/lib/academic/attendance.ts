@@ -29,7 +29,7 @@ export type ClassSession = {
 export const STATUS_META: Record<SessionStatus, { label: string; className: string }> = {
   presente: {
     label: "Presente",
-    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+    className: "bg-brand-soft text-brand-hover",
   },
   falta: { label: "Faltei", className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
   cancelada: { label: "Cancelada", className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },

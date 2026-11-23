@@ -9,7 +9,7 @@ export const fmtSessionDate = (s: Pick<ClassSession, "date" | "weekday">) => `${
 export function AbsenceMeter({ summary }: { summary: Summary }) {
   const { absentHours, maxAbsenceHours, exceeded } = summary;
   const pct = maxAbsenceHours > 0 ? Math.min(100, (absentHours / maxAbsenceHours) * 100) : absentHours > 0 ? 100 : 0;
-  const tone = exceeded || pct >= 100 ? "bg-red-600 dark:bg-red-400" : pct >= 75 ? "bg-amber-500" : "bg-brand dark:bg-link";
+  const tone = exceeded || pct >= 100 ? "bg-red-600 dark:bg-red-400" : pct >= 75 ? "bg-amber-500" : "bg-brand";
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -26,7 +26,7 @@ export function AbsenceMeter({ summary }: { summary: Summary }) {
         </p>
       </div>
       <div
-        className="mt-2 h-2 overflow-hidden rounded-full bg-background"
+        className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={maxAbsenceHours}
@@ -64,7 +64,7 @@ export function AttendanceBoard({ subjectId, summary, hasSchedule }: { subjectId
   return (
     <Link
       href={`/disciplinas/${subjectId}/frequencia`}
-      className="group block rounded-2xl border border-line bg-card p-6 transition hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+      className="group block rounded-2xl border border-line bg-card p-6 transition hover:border-accent focus-visible:outline-2 focus-visible:outline-brand"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold tracking-tight">Frequência</h2>
