@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.svg" alt="Logo do Gestão acadêmica" width="140" />
+</p>
+
 # gerenciador-academico
 
 Gerenciador acadêmico pessoal — Next.js (App Router) + Tailwind CSS. Autenticação planejada com Supabase Auth.
