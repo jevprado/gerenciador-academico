@@ -106,7 +106,7 @@ export function AppShell({ userSlot, children }: { userSlot: ReactNode; children
         </div>
       </aside>
 
-      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 space-y-6 px-4 py-6 sm:px-8 sm:py-8">
+      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 space-y-6 px-4 py-6 sm:px-8 sm:py-8 lg:pt-[5.5rem]">
         {children}
       </main>
     </div>
