@@ -7,7 +7,7 @@ import { markAttendanceBulk, setAttendance } from "@/lib/academic/actions";
 import { STATUS_META, type AttendanceStatus, type ClassSession } from "@/lib/academic/attendance";
 
 const OPTIONS: { status: AttendanceStatus; label: string; active: string }[] = [
-  { status: "presente", label: "Presente", active: "bg-emerald-600 text-white dark:bg-emerald-500" },
+  { status: "presente", label: "Presente", active: "bg-brand text-white" },
   { status: "falta", label: "Faltei", active: "bg-red-600 text-white dark:bg-red-500" },
   { status: "cancelada", label: "Cancelada", active: "bg-amber-500 text-white" },
   { status: "sem_aula", label: "Sem aula", active: "bg-sky-600 text-white dark:bg-sky-500" },
@@ -74,7 +74,7 @@ export function AttendanceList({ subjectId, sessions, today }: { subjectId: stri
             type="button"
             onClick={markPendingAsPresent}
             disabled={isPending}
-            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-hover disabled:opacity-60"
           >
             Marcar todas como presença
           </button>

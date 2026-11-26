@@ -14,7 +14,7 @@ import { WEEKDAYS } from "@/lib/academic/calc";
 import type { SubjectSchedule } from "@/lib/academic/sigaa";
 
 // Cores distintas para cada disciplina importada (todas legíveis no tema claro e escuro).
-const PALETTE = ["#275e4c", "#2563eb", "#c2410c", "#7c3aed", "#be185d", "#0e7490", "#a16207", "#4d7c0f", "#b91c1c", "#475569"];
+const PALETTE = ["#285c47", "#2563eb", "#c2410c", "#7c3aed", "#be185d", "#0e7490", "#a16207", "#4d7c0f", "#b91c1c", "#475569"];
 const WORKLOADS = [15, 30, 45, 60, 75, 90, 120];
 
 type Item = EnrollmentPreviewSubject & { selected: boolean; color: string };
@@ -128,9 +128,9 @@ export function SubjectPdfImporter({ semesterId, semesterName }: { semesterId: s
 
       {!items ? (
         <label
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-background/60 px-4 py-6 text-center transition hover:border-brand hover:bg-brand-soft/40 ${isExtracting ? "pointer-events-none opacity-60" : ""}`}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-background/60 px-4 py-6 text-center transition hover:border-accent hover:bg-brand-soft/30 ${isExtracting ? "pointer-events-none opacity-60" : ""}`}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="mb-2 h-7 w-7 text-brand dark:text-link" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="mb-2 h-7 w-7 text-accent" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0-4 4m4-4 4 4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
           </svg>
           <span className="text-sm font-medium text-foreground">

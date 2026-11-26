@@ -14,7 +14,7 @@ export type Subject = {
   minAverage: number;
   absences: number;
   maxAbsences: number;
-  nextClass: string | null;
+  schedules: string[];
 };
 
 export type Deadline = {
@@ -41,7 +41,7 @@ type SubjectRow = {
   workload_hours: number;
   min_average: number | null;
   min_attendance: number | null;
-  class_schedules: { weekday: number; start_time: string }[];
+  class_schedules: { weekday: number; start_time: string; end_time: string | null }[];
   assessments: { weight: number; max_grade: number; grade: number | null }[];
   class_attendance: { status: string; hours: number }[];
 };
@@ -62,7 +62,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("subjects")
       .select(
-        "id, name, professor, color, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time), assessments(weight, max_grade, grade), class_attendance(status, hours)",
+        "id, name, professor, color, workload_hours, min_average, min_attendance, class_schedules(weekday, start_time, end_time), assessments(weight, max_grade, grade), class_attendance(status, hours)",
       )
       .eq("semester_id", sem.id)
       .eq("status", "cursando")
@@ -82,7 +82,17 @@ export async function getDashboardData(): Promise<DashboardData> {
   const subjects: Subject[] = (subjectsRes.data ?? []).map((s) => {
     const average = partialAverage(s.assessments);
     const minAttendance = Number(s.min_attendance ?? sem.min_attendance);
-    const first = [...s.class_schedules].sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time))[0];
+    const schedules = [
+      ...new Set(
+        [...s.class_schedules]
+          .sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time))
+          .map((c) => {
+            const start = c.start_time.slice(0, 5);
+            const end = c.end_time?.slice(0, 5);
+            return end ? `${WEEKDAYS[c.weekday]} ${start}–${end}` : `${WEEKDAYS[c.weekday]} ${start}`;
+          }),
+      ),
+    ];
     return {
       id: s.id,
       name: s.name,
@@ -92,7 +102,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       minAverage: Number(s.min_average ?? sem.min_average),
       absences: absenceHours(s.class_attendance),
       maxAbsences: maxAbsences(s.workload_hours, minAttendance),
-      nextClass: first ? `${WEEKDAYS[first.weekday]} · ${first.start_time.slice(0, 5)}` : null,
+      schedules,
     };
   });
 

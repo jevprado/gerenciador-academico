@@ -53,7 +53,7 @@ export function AuthShell({
       <main className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-16 px-4 py-10 sm:px-8 lg:grid-cols-[1fr_minmax(0,32rem)] lg:px-20 lg:py-16">
         <section className="hidden lg:block lg:pl-8">
           <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.2em] text-brand dark:text-link">
-            <span aria-hidden className="h-0.5 w-6 bg-current" />
+            <span aria-hidden className="h-0.5 w-6 bg-accent" />
             MENOS RUÍDO. MAIS FOCO.
           </p>
           <h2 className="mt-6 text-6xl leading-[1.1] font-medium tracking-tight">

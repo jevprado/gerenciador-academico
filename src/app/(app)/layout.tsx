@@ -1,33 +1,35 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { Nav } from "@/components/app/nav";
-import { Logo } from "@/components/app/logo";
-import { logout } from "@/lib/auth/actions";
+import { AppShell } from "@/components/app/app-shell";
+import { getCurrentUser } from "@/lib/auth/user";
+
+async function SidebarUser() {
+  const user = await getCurrentUser();
+  const displayName = user.name?.trim() || user.email || "Conta";
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-sm font-medium text-foreground" title={displayName}>
+        {displayName}
+      </p>
+      {user.name && user.email && (
+        <p className="truncate text-xs text-muted" title={user.email}>
+          {user.email}
+        </p>
+      )}
+    </div>
+  );
+}
 
 // Moldura das telas logadas. O proxy e cada página conferem a sessão.
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-card">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
-          <Link href="/inicio" className="flex items-center gap-2.5" aria-label="Gestão acadêmica — início">
-            <Logo className="h-10 w-auto text-brand" />
-            <span className="hidden font-semibold tracking-tight sm:inline">Gestão acadêmica</span>
-          </Link>
-          <Suspense fallback={null}>
-            <Nav />
-          </Suspense>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-            >
-              Sair
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-8 px-4 py-8 sm:px-8">{children}</main>
-    </div>
+    <AppShell
+      userSlot={
+        <Suspense fallback={<div className="h-5 w-28 animate-pulse rounded bg-background" />}>
+          <SidebarUser />
+        </Suspense>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }

@@ -227,13 +227,13 @@ export function CalendarPdfImporter({
       {!items ? (
         <div className="space-y-4">
           <form action={handleUploadForm} className="space-y-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-background/60 px-4 py-6 text-center transition hover:border-brand hover:bg-brand-soft/40">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-background/60 px-4 py-6 text-center transition hover:border-accent hover:bg-brand-soft/30">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={1.75}
-                className="mb-2 h-7 w-7 text-brand dark:text-link"
+                className="mb-2 h-7 w-7 text-accent"
                 aria-hidden
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0-4 4m4-4 4 4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />

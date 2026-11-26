@@ -144,7 +144,7 @@ export async function deleteSemester(id: string) {
 // Disciplinas
 // ---------------------------------------------------------------------------
 function subjectFields(fd: FormData) {
-  const color = text(fd, "color", { max: 7 }) ?? "#275e4c";
+  const color = text(fd, "color", { max: 7 }) ?? "#285c47";
   if (!COLOR_RE.test(color)) throw new InvalidInput("Cor inválida.");
   return {
     name: text(fd, "name", { required: true, max: 120 }),
@@ -646,7 +646,7 @@ export async function importSubjects(
       code,
       professor: clip(item.professor, 120),
       room: clip(item.room, 60),
-      color: typeof item.color === "string" && COLOR_RE.test(item.color) ? item.color : "#275e4c",
+      color: typeof item.color === "string" && COLOR_RE.test(item.color) ? item.color : "#285c47",
       workload_hours: workload,
       schedules: schedules.map(({ weekday, start_time, end_time }) => ({ weekday, start_time, end_time })),
     });
