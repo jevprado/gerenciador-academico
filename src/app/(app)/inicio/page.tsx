@@ -100,13 +100,31 @@ async function Dashboard() {
               const absPct = s.maxAbsences > 0 ? Math.min(100, (s.absences / s.maxAbsences) * 100) : s.absences > 0 ? 100 : 0;
               return (
                 <li key={s.id} className="flex flex-wrap items-center gap-4 py-4 first:pt-0 last:pb-0">
-                  <span className="h-10 w-1.5 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 font-medium">
-                      <Link href={`/disciplinas/${s.id}`} className="truncate hover:underline">{s.name}</Link>
-                      {risk && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Em risco</span>}
-                    </p>
-                    <p className="truncate text-sm text-muted">{[s.professor, s.nextClass].filter(Boolean).join(" · ") || "—"}</p>
+                  <div className="flex min-w-0 flex-1 items-stretch gap-3.5">
+                    <span className="w-1.5 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-2 font-medium">
+                        <Link href={`/disciplinas/${s.id}`} className="truncate hover:underline">{s.name}</Link>
+                        {risk && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Em risco</span>}
+                      </p>
+                      {s.professor ? (
+                        <p className="truncate text-sm text-muted">{s.professor}</p>
+                      ) : s.schedules.length === 0 ? (
+                        <p className="text-sm text-muted">—</p>
+                      ) : null}
+                      {s.schedules.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {s.schedules.map((slot) => (
+                            <span
+                              key={slot}
+                              className="rounded-md bg-background px-1.5 py-0.5 text-xs font-medium text-muted ring-1 ring-inset ring-line"
+                            >
+                              {slot}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="w-28">
                     <p className="text-xs text-muted">Faltas {s.absences}/{s.maxAbsences}</p>
