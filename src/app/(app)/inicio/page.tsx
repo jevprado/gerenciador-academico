@@ -198,7 +198,7 @@ function TopHeader({ name }: { name?: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Shortcut href="/prazos#novo" icon={PlusIcon} label="Novo prazo" />
           <Shortcut href="/disciplinas" icon={NotebookIcon} label="Lançar nota" />
-          <Shortcut href="/disciplinas#nova" icon={BookIcon} label="Nova disciplina" />
+          <Shortcut href="/disciplinas/nova" icon={BookIcon} label="Nova disciplina" />
         </div>
       </section>
     </div>
