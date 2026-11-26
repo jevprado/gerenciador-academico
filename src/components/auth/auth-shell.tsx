@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { BookIcon, CalendarIcon, HelpIcon, NotebookIcon, ProgressIcon } from "./icons";
+import { Logo } from "@/components/app/logo";
+import { CalendarIcon, HelpIcon, NotebookIcon, ProgressIcon } from "./icons";
 
 const FEATURES = [
   {
@@ -36,9 +37,7 @@ export function AuthShell({
     <div className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-6 sm:px-8 lg:px-20">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-white">
-            <BookIcon className="h-5 w-5" />
-          </span>
+          <Logo className="h-11 w-auto text-brand" />
           <span className="text-lg font-semibold tracking-tight">Gestão acadêmica</span>
         </div>
         {/* TODO: página de ajuda */}
