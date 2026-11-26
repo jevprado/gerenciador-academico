@@ -7,7 +7,7 @@ async function SidebarUser() {
   const displayName = user.name?.trim() || user.email || "Conta";
   return (
     <div className="min-w-0">
-      <p className="truncate text-sm font-semibold text-foreground" title={displayName}>
+      <p className="truncate text-sm font-medium text-foreground" title={displayName}>
         {displayName}
       </p>
       {user.name && user.email && (

@@ -71,7 +71,7 @@ async function Dashboard() {
             </p>
           </div>
           <p className="text-sm text-muted">
-            <span className="text-2xl font-semibold text-foreground">{daysLeft}</span> dias para o fim
+            <span className="text-2xl font-semibold tabular-nums text-foreground">{daysLeft}</span> dias para o fim
           </p>
         </div>
         <div
@@ -84,7 +84,7 @@ async function Dashboard() {
         >
           <div className="h-full rounded-full bg-brand" style={{ width: `${progress}%` }} />
         </div>
-        <p className="mt-2 text-xs text-muted">{progress}% do semestre concluído</p>
+        <p className="mt-2 text-xs tabular-nums text-muted">{progress}% do semestre concluído</p>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -117,7 +117,7 @@ async function Dashboard() {
                           {s.schedules.map((slot) => (
                             <span
                               key={slot}
-                              className="rounded-md bg-background px-1.5 py-0.5 text-xs font-medium text-muted ring-1 ring-inset ring-line"
+                              className="rounded-md bg-background px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted ring-1 ring-inset ring-line"
                             >
                               {slot}
                             </span>
@@ -127,13 +127,13 @@ async function Dashboard() {
                     </div>
                   </div>
                   <div className="w-28">
-                    <p className="text-xs text-muted">Faltas {s.absences}/{s.maxAbsences}</p>
+                    <p className="text-xs tabular-nums text-muted">Faltas {s.absences}/{s.maxAbsences}</p>
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-brand-soft">
                       <div className={`h-full rounded-full ${absPct >= 75 ? "bg-red-500" : "bg-brand"}`} style={{ width: `${absPct}%` }} />
                     </div>
                   </div>
                   <div className="w-14 text-right">
-                    <p className={`text-lg font-semibold ${s.average !== null && s.average < s.minAverage ? "text-red-600 dark:text-red-400" : ""}`}>
+                    <p className={`text-lg font-semibold tabular-nums ${s.average !== null && s.average < s.minAverage ? "text-red-600 dark:text-red-400" : ""}`}>
                       {s.average === null ? "—" : fmtGrade(s.average)}
                     </p>
                     <p className="text-xs text-muted">média</p>
@@ -153,7 +153,7 @@ async function Dashboard() {
               return (
                 <li key={d.id} className="flex gap-3 rounded-xl border border-line p-3">
                   <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-brand-soft py-1 text-brand dark:text-link">
-                    <span className="text-sm font-semibold">{fmtDate.format(d.day)}</span>
+                    <span className="text-sm font-semibold tabular-nums">{fmtDate.format(d.day)}</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{d.title}</p>
