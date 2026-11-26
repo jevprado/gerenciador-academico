@@ -16,8 +16,22 @@
   --link: #285c47;
 }
 
-/* Sem tema escuro por enquanto: "dark:" só valeria com a classe .dark, que não é usada. */
+/* Tema escuro adaptado da paleta Forest Green, ativado pela classe .dark no <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+:root.dark {
+  color-scheme: dark;
+  --background: #0d1613;
+  --foreground: #edf3ee;
+  --card: #13211c;
+  --line: #233830;
+  --muted: #9ab3a6;
+  --brand: #3b8063;
+  --brand-hover: #4a9676;
+  --brand-soft: #1c352b;
+  --accent: #5c9270;
+  --link: #8ec5a5;
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -43,4 +57,9 @@ body {
 ::selection {
   background: var(--brand-soft);
   color: var(--brand-hover);
+}
+
+.dark ::selection {
+  background: var(--brand);
+  color: #ffffff;
 }
